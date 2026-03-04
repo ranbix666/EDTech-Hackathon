@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>prober.ai — Loading</title>
+
+  <!-- Google Fonts: JetBrains Mono & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome 6.5 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="theme-orange home-skeleton">
+  <nav class="topnav home-topnav" aria-label="Primary">
+    <div class="topnav-left">
+      <div class="home-logo" aria-hidden="true"><img src="/icon.jpg" alt="" class="home-logo-img"></div>
+      <span class="home-brand-name">prober.ai</span>
+    </div>
+
+    <div class="topnav-right home-nav-right" aria-label="Header actions">
+      <button id="home-theme-toggle" class="icon-button home-moon" type="button" aria-label="Toggle theme (Orange / UNC Blue)">
+        <i class="fa-solid fa-moon"></i>
+      </button>
+    </div>
+  </nav>
+
+  <main class="home-main" role="main">
+    <section class="home-hero panel" aria-label="Loading content">
+      <div class="home-hero-inner">
+        <div class="home-overlay-copy" aria-label="Product philosophy">
+          <h1 class="home-headline"><span class="home-headline-brand">Welcome to Prober.ai</span> — Defend your draft with AI-supported review.</h1>
+
+          <p class="home-body">
+            Most AI tools are designed to do the thinking for you. Prober.ai is different. This is an AI-supported writing tool that refuses to rewrite your essay. Instead, it acts as a rigorous peer reviewer, examining your writing and helping you build a strong argument.
+          </p>
+          <p class="home-body">
+            By engaging in this knowledge co-construction, you will build stronger warrants, clarify your thesis, and master the art of argumentative writing.
+          </p>
+
+          <p class="home-cta">Are you ready to test your text? Choose your reviewer below to begin the defense.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="home-persona-panel" aria-label="Choose a feedback persona">
+      <div class="home-cards">
+        <a class="home-card home-card--left" href="/app?persona=reviewer2" aria-label="Go to app with Reviewer 2">
+          <div class="persona-avatar">
+            <i class="fa-solid fa-microscope"></i>
+          </div>
+          <span class="home-card-label">Reviewer 2</span>
+          <span class="home-card-description">Select this tone for an expert-level critique that ignores grammar and aggressively challenges the logic of your core thesis.</span>
+        </a>
+        <a class="home-card home-card--right" href="/app?persona=confusedReader" aria-label="Go to app with Confused Reader">
+          <div class="persona-avatar">
+            <i class="fa-solid fa-glasses"></i>
+          </div>
+          <span class="home-card-label">Confused reader</span>
+          <span class="home-card-description">Select this tone to identify where heavy jargon or missing explanations overwhelm an intelligent but non-expert audience.</span>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <script src="/home.js"></script>
+</body>
+</html>
