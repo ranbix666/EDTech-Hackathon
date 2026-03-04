@@ -57,9 +57,6 @@ Prober.ai is a web app that:
     - Alternate **Orange** theme via a `theme-orange` body class.
     - Choice is persisted in `localStorage`.
 
-- **Additional demo – `llm-chatbot-demo`**
-  - Minimal HTML/JS demo of a student AI assistant chat UI (`index.html`, `script.js`).
-
 ### 4. Tech Stack
 
 - **Frontend**
@@ -105,10 +102,6 @@ From the repo root:
    ```
 
    Then open `http://localhost:3000` in your browser.
-
-4. **Open the LLM chatbot demo (static)**
-
-   - Serve `llm-chatbot-demo/` with any static server (e.g., VS Code Live Server, `npx serve llm-chatbot-demo`), then open the served URL in your browser.
 
 ### 6. Team Members
 
