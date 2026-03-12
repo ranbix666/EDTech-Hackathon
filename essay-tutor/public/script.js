@@ -1,4 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Gate: require Gemini API key
+    const GEMINI_API_KEY = localStorage.getItem('geminiApiKey');
+    if (!GEMINI_API_KEY) {
+        window.location.replace('/login');
+        return;
+    }
+
     // ==========================================================================
     // 1. Element Selectors
     // ==========================================================================
@@ -8,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const uploadBtn = document.getElementById('upload-btn');
     const fileInput = document.getElementById('file-input');
     const themeToggle = document.getElementById('theme-toggle');
+    const changeKeyBtn = document.getElementById('change-key-btn');
     const brandIconImg = document.querySelector('.brand-icon-img');
     
     const feedbackContent = document.getElementById('feedback-content');
@@ -62,6 +70,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================================================
     
     challengeBtn.addEventListener('click', handleChallenge);
+
+    if (changeKeyBtn) {
+        changeKeyBtn.addEventListener('click', () => {
+            localStorage.removeItem('geminiApiKey');
+            window.location.href = '/login';
+        });
+    }
 
     document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -188,10 +203,10 @@ document.addEventListener('DOMContentLoaded', () => {
         updateFeedbackState('loading');
 
         try {
-            const response = await fetch('/challenge', { // CORRECTED ENDPOINT
+            const response = await fetch('/challenge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ essay: essayText, persona: currentPersona }),
+                body: JSON.stringify({ essay: essayText, persona: currentPersona, geminiApiKey: GEMINI_API_KEY }),
             });
 
             if (!response.ok) {
@@ -408,6 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         userDefense: userDefense,
                         label: title,
                         excerpt: excerpt || null,
+                        geminiApiKey: GEMINI_API_KEY,
                     }),
                 });
 

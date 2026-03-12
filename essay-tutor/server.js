@@ -16,6 +16,10 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'home.html'));
 });
 
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
 app.get('/app', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -25,9 +29,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Expose shared sample essays for the "Try Sample" button
 app.use('/samples', express.static(path.join(__dirname, '..', 'essay-tutor-static', 'samples')));
 
-// Initialize the Gemini AI client
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+// Resolve the Gemini model for a request.
+// Accepts a user-supplied key (from the browser's localStorage) with a
+// fallback to the server's .env for local development.
+function getModel(requestApiKey) {
+    const apiKey = requestApiKey || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        throw new Error('No Gemini API key provided. Please supply your key on the login page.');
+    }
+    return new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: 'gemini-2.0-flash' });
+}
 
 // Load pedagogical guidance / knowledge base (optional but recommended)
 const pedagogyGuidePath = path.join(__dirname, 'pedagogy_guide.md');
@@ -81,9 +92,13 @@ In the global JSON output that follows later, you will:
  */
 app.post('/challenge', async (req, res) => {
     try {
-        const { essay, persona = 'reviewer2' } = req.body;
+        const { essay, persona = 'reviewer2', geminiApiKey } = req.body;
         if (!essay || !essay.trim()) {
             return res.status(400).send({ error: 'Essay text is required.' });
+        }
+        let model;
+        try { model = getModel(geminiApiKey); } catch (e) {
+            return res.status(401).send({ error: e.message });
         }
         const personaConfig = PERSONAS[persona] || PERSONAS.reviewer2;
 
@@ -215,9 +230,13 @@ ${essay.trim()}
 /** Unlock suggestions only after the user has written their defense. Gated feedback loop step 4. */
 app.post('/unlock', async (req, res) => {
     try {
-        const { essay, label, excerpt, question, userDefense } = req.body;
+        const { essay, label, excerpt, question, userDefense, geminiApiKey } = req.body;
         if (!essay || !question || !userDefense || !userDefense.trim()) {
             return res.status(400).send({ error: 'Essay, question, and your reflection are required.' });
+        }
+        let model;
+        try { model = getModel(geminiApiKey); } catch (e) {
+            return res.status(401).send({ error: e.message });
         }
 
         const prompt = `You are a helpful writing tutor. The writer received this critical question about their text and has now written a defense/explanation.

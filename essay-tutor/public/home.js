@@ -1,4 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // Gate: require API key before showing the home page
+  if (!localStorage.getItem('geminiApiKey')) {
+    window.location.replace('/login');
+    return;
+  }
+
   const THEME_STORAGE_KEY = 'proberHomeTheme';
 
   const toggleBtn = document.getElementById('home-theme-toggle');
@@ -30,5 +36,13 @@ document.addEventListener('DOMContentLoaded', () => {
     applyTheme(nextTheme);
     localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
   });
+
+  const changeKeyBtn = document.getElementById('change-key-btn');
+  if (changeKeyBtn) {
+    changeKeyBtn.addEventListener('click', () => {
+      localStorage.removeItem('geminiApiKey');
+      window.location.href = '/login';
+    });
+  }
 });
 
