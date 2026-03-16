@@ -210,7 +210,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                let errorMsg = `Server error (${response.status})`;
+                try {
+                    const errBody = await response.json();
+                    if (errBody?.error) errorMsg = errBody.error;
+                } catch {}
+                if (response.status === 401) {
+                    errorMsg = 'API key rejected. Please check your Gemini API key and try again.';
+                }
+                throw new Error(errorMsg);
             }
 
             const data = await response.json();
@@ -220,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error('Error getting feedback:', error);
-            showToast('Failed to get feedback from the server.', 'error');
+            showToast(error.message || 'Failed to get feedback from the server.', 'error');
             updateFeedbackState('empty');
         } finally {
             setLoadingState(false);
@@ -427,7 +435,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     }),
                 });
 
-                if (!unlockResponse.ok) throw new Error('Failed to get suggestion.');
+                if (!unlockResponse.ok) {
+                    let unlockErrMsg = 'Failed to get suggestion.';
+                    try {
+                        const errBody = await unlockResponse.json();
+                        if (errBody?.error) unlockErrMsg = errBody.error;
+                    } catch {}
+                    throw new Error(unlockErrMsg);
+                }
 
                 const suggestionData = await unlockResponse.json();
                 renderReward(suggestionData.suggestion, suggestionData.tip, container);

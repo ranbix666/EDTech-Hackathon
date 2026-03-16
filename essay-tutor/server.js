@@ -37,7 +37,7 @@ function getModel(requestApiKey) {
     if (!apiKey) {
         throw new Error('No Gemini API key provided. Please supply your key on the login page.');
     }
-    return new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: 'gemini-2.0-flash' });
+    return new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: 'gemini-3-flash-preview' });
 }
 
 // Load pedagogical guidance / knowledge base (optional but recommended)
@@ -223,7 +223,9 @@ ${essay.trim()}
         }
     } catch (error) {
         console.error('Error in /challenge:', error);
-        res.status(500).send({ error: 'Failed to generate challenge.' });
+        const message = error?.message || 'Failed to generate challenge.';
+        const isApiKeyError = /api.?key|permission|quota|billing|unauthorized|invalid/i.test(message);
+        res.status(isApiKeyError ? 401 : 500).send({ error: message });
     }
 });
 
@@ -259,10 +261,17 @@ Output a JSON object with:
         res.json({ suggestion: parsed.suggestion || text, tip: parsed.tip || '' });
     } catch (error) {
         console.error('Error in /unlock:', error);
-        res.status(500).send({ error: 'Failed to generate suggestion.' });
+        const message = error?.message || 'Failed to generate suggestion.';
+        const isApiKeyError = /api.?key|permission|quota|billing|unauthorized|invalid/i.test(message);
+        res.status(isApiKeyError ? 401 : 500).send({ error: message });
     }
 });
 
-app.listen(port, () => {
-    console.log(`Server listening at http://localhost:${port}`);
-});
+// Export for Vercel serverless; also listen locally for development.
+if (require.main === module) {
+    app.listen(port, () => {
+        console.log(`Server listening at http://localhost:${port}`);
+    });
+}
+
+module.exports = app;
