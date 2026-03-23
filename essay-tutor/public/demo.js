@@ -1,7 +1,5 @@
-// Demo mode: no API key required.
-// Questions are pre-loaded (hardcoded). /unlock calls use the server's .env key.
-// NOTE: The /unlock endpoint requires GEMINI_API_KEY to be set in the server's .env
-// (or Vercel environment variable) for the live AI suggestions to work.
+// Demo mode: fully self-contained. No API key required anywhere.
+// All questions AND unlock suggestions are pre-baked — no server calls needed.
 
 const DEMO_ESSAY_TEXT = `Driverless cars are exaclty what you would expect them to be. Cars that will drive without a person actually behind the wheel controlling the actions of the vehicle. The idea of driverless cars going in to developement shows the amount of technological increase that the wolrd has made. The leader of this idea of driverless cars are the automobiles they call Google cars. The arduous task of creating safe driverless cars has not been fully mastered yet. The developement of these cars should be stopped immediately because there are too many hazardous and dangerous events that could occur.
 
@@ -24,6 +22,41 @@ const DEMO_FEEDBACK = {
     scope_or_implication_excerpt: "No one knows because there is so many different factors that attribute to who to assign the blame to."
 };
 
+const DEMO_FEEDBACK_CONFUSED_READER = {
+    clarification_question: "You mention that 'The leader of this idea of driverless cars are the automobiles they call Google cars' — but you never explain what makes them the benchmark. Could you clarify what 'leader' means here: most technically advanced, most commercially deployed, or most widely studied in the research you read?",
+    clarification_excerpt: "The leader of this idea of driverless cars are the automobiles they call Google cars.",
+    co_construction_question: "You argue that in-car entertainment will fatally distract the person who needs to take over driving — but what other design solutions could you imagine that might separate the passenger experience from emergency override? What possibilities haven't been tried or explored yet?",
+    co_construction_excerpt: "The article also states that companies are trying to put in-car entertainment into the car while it is being driven."
+};
+
+// Pre-baked unlock suggestions — one per question label. No API call needed.
+const DEMO_UNLOCK_SUGGESTIONS = {
+    'CLAIM': {
+        suggestion: "Consider making your claim conditional rather than absolute. Instead of \"The development of these cars should be stopped immediately,\" try: \"Until comprehensive regulatory frameworks and proven fail-safe systems are in place, the commercial deployment of driverless vehicles should be halted.\" This anchors your argument to specific, falsifiable conditions — making it far harder to dismiss.",
+        tip: "Claims that include conditions for change ('until X is true') are logically stronger than unconditional bans because they show you've thought about what evidence would change your mind."
+    },
+    'REASONING': {
+        suggestion: "Replace the logical leap in your conclusion with an analogy-based argument. Instead of \"if something COULD go wrong, it WILL go wrong,\" write: \"Aviation history shows that new transportation technologies almost always experience catastrophic failures before adequate safety protocols are developed — and unlike early planes, driverless cars share roads with pedestrians who cannot opt out of the risk.\" This grounds your reasoning in precedent rather than probability.",
+        tip: "When you catch yourself using possibility as proof of inevitability, ask: what historical evidence actually supports this claim? That evidence is what your reader needs to see."
+    },
+    'COUNTERARGUMENT': {
+        suggestion: "Strengthen your rebuttal by first acknowledging the best version of the opposing argument. Before your current conclusion, add: \"Proponents correctly note that human error causes the majority of traffic accidents — and that driverless systems, in controlled tests, eliminate driver distraction and fatigue entirely. But controlled tests are not public roads, and no trial has yet simulated simultaneous sensor failure in adverse weather across a mixed fleet.\" This shows intellectual honesty while sharpening your refutation.",
+        tip: "Always argue against the strongest version of the opposing view, not the weakest. This is called 'steelmanning' — and it makes your own argument more persuasive, not less."
+    },
+    'SCOPE / IMPLICATION': {
+        suggestion: "Your liability argument reveals a more precise — and stronger — version of your claim. Consider replacing the conclusion with: \"The core problem is not whether driverless cars can drive safely, but whether our legal and insurance systems can assign responsibility when they fail. Until lawmakers resolve that ambiguity, deploying these vehicles creates an accountability vacuum that harms accident victims regardless of fault.\" This focuses your argument on the governance gap, your most concrete piece of evidence.",
+        tip: "If your most specific evidence points to a systemic problem like legal ambiguity, make that the centerpiece of your argument rather than listing it as one equal point among three."
+    },
+    'Clarification Question': {
+        suggestion: "Add a brief definition the first time you introduce 'Google cars.' For example: \"Google's Waymo program, currently the most extensively road-tested autonomous vehicle effort, has logged tens of millions of test miles — yet still requires safety drivers in most jurisdictions.\" This tells a non-expert reader exactly why Google is the benchmark without derailing your main argument.",
+        tip: "Each proper noun or technical term you introduce without definition is a place where a non-expert reader can fall off. One defining clause per term is usually enough."
+    },
+    'Co-Construction Question': {
+        suggestion: "Explore this design tension directly in your essay: \"One proposed solution is a strict modal separation — a 'passenger mode' that locks the wheel, and an 'emergency mode' triggered only by collision detection. If such a system worked reliably, it would address my distraction objection — but it creates a new one: can a system sophisticated enough to detect emergencies also be trusted to drive the car? The two requirements may be fundamentally at odds.\" Adding this shows you've wrestled with the best counterargument.",
+        tip: "When you can describe a hypothetical solution and then explain why it doesn't fully resolve your concern, you've demonstrated the deepest kind of critical thinking."
+    },
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     // ==========================================================================
     // 1. Element Selectors
@@ -44,6 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================================================
     // 2. State
     // ==========================================================================
+    let currentPersona = 'reviewer2';
     let currentHighlightRange = null;
     let useTabsView = true;
     let lastEssayText = DEMO_ESSAY_TEXT;
@@ -85,6 +119,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     demoChallengeBtn.addEventListener('click', loadDemoFeedback);
 
+    const personaTabs = document.querySelectorAll('.persona-tab');
+    personaTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const next = tab.dataset.persona;
+            if (!next || next === currentPersona) return;
+            currentPersona = next;
+            personaTabs.forEach(t => t.setAttribute('aria-selected', t.dataset.persona === currentPersona));
+            loadDemoFeedback();
+        });
+    });
+
     clearBtn.addEventListener('click', () => {
         quill.setText('');
         feedbackResults.innerHTML = '';
@@ -103,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const isOn = useTabsView;
             feedbackViewToggle.classList.toggle('switcher-on', isOn);
             feedbackViewToggle.setAttribute('aria-pressed', isOn);
-            renderFeedback(DEMO_FEEDBACK, lastEssayText);
+            renderFeedback(getDemoFeedbackForPersona(), lastEssayText);
             updateFeedbackState('results');
         });
     }
@@ -140,14 +185,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // 5. Demo Feedback Loading
     // ==========================================================================
 
+    function getDemoFeedbackForPersona() {
+        return currentPersona === 'confusedReader' ? DEMO_FEEDBACK_CONFUSED_READER : DEMO_FEEDBACK;
+    }
+
     function loadDemoFeedback() {
         updateFeedbackState('loading');
         demoChallengeBtn.classList.add('loading');
         demoChallengeBtn.disabled = true;
 
-        // Short delay to show the loading state, then render pre-baked feedback
         setTimeout(() => {
-            renderFeedback(DEMO_FEEDBACK, lastEssayText);
+            renderFeedback(getDemoFeedbackForPersona(), lastEssayText);
             updateFeedbackState('results');
             demoChallengeBtn.classList.remove('loading');
             demoChallengeBtn.disabled = false;
@@ -170,13 +218,28 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionLog = [];
         hideExportButton();
 
-        const questions = {
-            CLAIM: { question: data.claim_question, excerpt: data.claim_excerpt || null },
-            REASONING: { question: data.reasoning_question, excerpt: data.reasoning_excerpt || null },
-            COUNTERARGUMENT: { question: data.counterargument_question, excerpt: data.counterargument_excerpt || null },
-            'SCOPE / IMPLICATION': { question: data.scope_or_implication_question, excerpt: data.scope_or_implication_excerpt || null },
-        };
-        const entries = Object.entries(questions).filter(([, p]) => p.question);
+        let entries;
+        if (currentPersona === 'confusedReader') {
+            const questions = {
+                'Clarification Question': {
+                    question: data.clarification_question,
+                    excerpt: data.clarification_excerpt || null,
+                },
+                'Co-Construction Question': {
+                    question: data.co_construction_question || data.coconstruction_question,
+                    excerpt: data.co_construction_excerpt || data.coconstruction_excerpt || null,
+                },
+            };
+            entries = Object.entries(questions).filter(([, p]) => p.question);
+        } else {
+            const questions = {
+                CLAIM: { question: data.claim_question, excerpt: data.claim_excerpt || null },
+                REASONING: { question: data.reasoning_question, excerpt: data.reasoning_excerpt || null },
+                COUNTERARGUMENT: { question: data.counterargument_question, excerpt: data.counterargument_excerpt || null },
+                'SCOPE / IMPLICATION': { question: data.scope_or_implication_question, excerpt: data.scope_or_implication_excerpt || null },
+            };
+            entries = Object.entries(questions).filter(([, p]) => p.question);
+        }
 
         totalChallenges = entries.length;
         unlockedCount = 0;
@@ -287,7 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
         container.appendChild(reflectionSection);
 
         const getSuggestionsBtn = reflectionSection.querySelector('.get-suggestions-btn');
-        getSuggestionsBtn.addEventListener('click', async () => {
+        getSuggestionsBtn.addEventListener('click', () => {
             const userDefense = reflectionSection.querySelector('.reflection-input').value;
             if (!userDefense.trim()) {
                 showToast('Please write a reflection before unlocking.', 'error');
@@ -297,30 +360,15 @@ document.addEventListener('DOMContentLoaded', () => {
             getSuggestionsBtn.classList.add('loading');
             getSuggestionsBtn.disabled = true;
 
-            try {
-                // No geminiApiKey field — server uses .env fallback
-                const unlockResponse = await fetch('/unlock', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        essay: lastEssayText,
-                        question: question,
-                        userDefense: userDefense,
-                        label: title,
-                        excerpt: excerpt || null,
-                    }),
-                });
+            // Use pre-baked suggestion — no API call needed in demo mode
+            const prebaked = DEMO_UNLOCK_SUGGESTIONS[title];
+            const suggestionData = prebaked || {
+                suggestion: "Great reflection! In a live session, Prober would generate a specific revision suggestion tailored to your defense here.",
+                tip: "The more specific your defense, the more targeted the revision tip."
+            };
 
-                if (!unlockResponse.ok) {
-                    let unlockErrMsg = 'Failed to get suggestion. The server may need a GEMINI_API_KEY configured.';
-                    try {
-                        const errBody = await unlockResponse.json();
-                        if (errBody?.error) unlockErrMsg = errBody.error;
-                    } catch {}
-                    throw new Error(unlockErrMsg);
-                }
-
-                const suggestionData = await unlockResponse.json();
+            // Short artificial delay to simulate processing
+            setTimeout(() => {
                 renderReward(suggestionData.suggestion, suggestionData.tip, container);
 
                 sessionLog.push({
@@ -338,12 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 getSuggestionsBtn.remove();
                 reflectionSection.querySelector('.reflection-input').disabled = true;
-
-            } catch (error) {
-                showToast(error.message, 'error');
-                getSuggestionsBtn.classList.remove('loading');
-                getSuggestionsBtn.disabled = false;
-            }
+            }, 600);
         });
 
         return container;
@@ -467,7 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <body>
     <header>
         <h1>Prober.ai — Reflection Session</h1>
-        <div class="meta">Date: ${dateStr} &nbsp;|&nbsp; Persona: Reviewer 2 (Demo) &nbsp;|&nbsp; Challenges completed: ${sessionLog.length}</div>
+        <div class="meta">Date: ${dateStr} &nbsp;|&nbsp; Persona: ${currentPersona === 'confusedReader' ? 'Confused Reader' : 'Reviewer 2'} (Demo) &nbsp;|&nbsp; Challenges completed: ${sessionLog.length}</div>
     </header>
     <div class="essay-preview">
         <h2>Essay excerpt (first 500 characters)</h2>${escapeHtml(essaySnippet)}
