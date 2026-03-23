@@ -24,6 +24,10 @@ app.get('/app', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.get('/demo', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'demo.html'));
+});
+
 // Serve the static frontend files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 // Expose shared sample essays for the "Try Sample" button

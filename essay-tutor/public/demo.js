@@ -1,49 +1,56 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // Gate: require Gemini API key
-    const GEMINI_API_KEY = localStorage.getItem('geminiApiKey');
-    if (!GEMINI_API_KEY) {
-        window.location.replace('/login');
-        return;
-    }
+// Demo mode: no API key required.
+// Questions are pre-loaded (hardcoded). /unlock calls use the server's .env key.
+// NOTE: The /unlock endpoint requires GEMINI_API_KEY to be set in the server's .env
+// (or Vercel environment variable) for the live AI suggestions to work.
 
+const DEMO_ESSAY_TEXT = `Driverless cars are exaclty what you would expect them to be. Cars that will drive without a person actually behind the wheel controlling the actions of the vehicle. The idea of driverless cars going in to developement shows the amount of technological increase that the wolrd has made. The leader of this idea of driverless cars are the automobiles they call Google cars. The arduous task of creating safe driverless cars has not been fully mastered yet. The developement of these cars should be stopped immediately because there are too many hazardous and dangerous events that could occur.
+
+One thing that the article mentions is that the driver will be alerted when they will need to take over the driving responsibilites of the car. This is such a dangerous thing because we all know that whenever humans get their attention drawn in on something interesting it is hard to draw their focus somewhere else. The article explains that companies are trying to implement vibrations when the car is in trouble. Their are some people out there who do not feel vibrations and therefore would not be able to take control of the car when needed. The article also states that companies are trying to put in-car entertainment into the car while it is being driven. This is just another thing that will distract the person who is supposed to be ready at all times to take over driving when asked to do so.
+
+Another thing that can go wrong with these cars is any type of techological malfucntion. Every person with any kind of technological device has experienced some sort of error. Now imagine if your car has an error technologically and it takes the life of one your loved ones. The article talks about sensors around the car that read the surroundings of the car and that is what helps he car to drive without a true driver behind the wheel. Those sensors could have a malfunctions and be sensing something that is that even there and make a left turn into a 100 foot deep lake. The vibrations that cause the driver to be notified to drive could malfunction and now the driver has no way of knowing that the car is in trouble and now you, the driver, and the rest of your passengers are being buried in your local cemetery.
+
+One last thing that the article mentions is negative about the developement of driverless cars is who to blame for the wreck if there were possibly some sort of technological malfunciton or even some sort of human error when taking over the driving aspect. Should the manufacturer of the car be blamed or should it be the driver? No one knows because there is so many different factors that attribute to who to assign the blame to. Some of what will have to be made is a judgement call. When it comes to insurance and having to pay for any damages you do not want someone to have to make some sort of judgement call. What if that judgement call that was made was the wrong call? Now there are going to be even more lawsuits today in our courts than there already are. This problem alone will just lead to many more issues today in the world that should not have to be dealt with.
+
+With all these things that could possibly go wrong with these driverless cars there is no way that the developement of them should continue any further. In today's society if something bad COULD happen or something COULD go wrong, it WILL happen, and it WILL go wrong. There are just way too many safety hazards that come along with these driverless cars. Becuase of all of these problems that arise with the cars it is just a gargantuan risk to implement these cars into our lifestyles.`;
+
+const DEMO_FEEDBACK = {
+    claim_question: "Your central claim is that driverless car development should stop immediately — but what specific criteria would need to be met for you to change that position, and have you considered whether any of those criteria might already be achievable?",
+    claim_excerpt: "The developement of these cars should be stopped immediately because there are too many hazardous and dangerous events that could occur.",
+    reasoning_question: "You write \"if something bad COULD happen, it WILL happen\" — what logical framework supports treating every possible failure as inevitable, and does that same standard apply consistently to other technologies we already accept in daily life?",
+    reasoning_excerpt: "In today's society if something bad COULD happen or something COULD go wrong, it WILL happen, and it WILL go wrong.",
+    counterargument_question: "What evidence or argument would you need to encounter before you could acknowledge that driverless systems might actually outperform distracted human drivers on the very dimensions you cite as dangerous?",
+    counterargument_excerpt: "With all these things that could possibly go wrong with these driverless cars there is no way that the developement of them should continue any further.",
+    scope_or_implication_question: "If the liability ambiguity you describe in the final body paragraph is your strongest objection, does that imply a legal reform could make development acceptable — and what does that reveal about the actual scope of your core claim?",
+    scope_or_implication_excerpt: "No one knows because there is so many different factors that attribute to who to assign the blame to."
+};
+
+document.addEventListener('DOMContentLoaded', () => {
     // ==========================================================================
     // 1. Element Selectors
     // ==========================================================================
-    const challengeBtn = document.getElementById('challenge-btn');
-    const sampleBtn = document.getElementById('sample-btn');
+    const demoChallengeBtn = document.getElementById('demo-challenge-btn');
     const clearBtn = document.getElementById('clear-btn');
-    const uploadBtn = document.getElementById('upload-btn');
-    const fileInput = document.getElementById('file-input');
     const themeToggle = document.getElementById('theme-toggle');
-    const changeKeyBtn = document.getElementById('change-key-btn');
     const brandIconImg = document.querySelector('.brand-icon-img');
-    
-    const feedbackContent = document.getElementById('feedback-content');
+
     const feedbackEmpty = document.getElementById('feedback-empty');
     const feedbackLoading = document.getElementById('feedback-loading');
     const feedbackResults = document.getElementById('feedback-results');
     const feedbackViewToggle = document.getElementById('feedback-view-toggle');
     const wordCountBadge = document.querySelector('.word-count-badge');
-    
+
     const toastContainer = document.getElementById('toast-container');
 
     // ==========================================================================
-    // 2. State Management
+    // 2. State
     // ==========================================================================
-    const personaFromUrl = (() => {
-        const p = new URLSearchParams(window.location.search).get('persona');
-        return (p === 'reviewer2' || p === 'confusedReader') ? p : null;
-    })();
-    let currentPersona = personaFromUrl || 'reviewer2'; // From home link ?persona= or default
-    let isLoading = false;
-    let currentHighlightRange = null; // { index, length } for editor context highlighting
-    let useTabsView = true; // Switcher default ON: show 4 tabs instead of 4 cards
-    let lastFeedbackData = null;
-    let lastEssayText = '';
-    const THEME_STORAGE_KEY = 'essayMentorTheme';
+    let currentHighlightRange = null;
+    let useTabsView = true;
+    let lastEssayText = DEMO_ESSAY_TEXT;
     let totalChallenges = 0;
     let unlockedCount = 0;
     let sessionLog = [];
+    const THEME_STORAGE_KEY = 'essayMentorTheme';
 
     // ==========================================================================
     // 3. Quill Editor Setup
@@ -59,82 +66,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 ['clean']
             ]
         },
-        placeholder: 'Start writing your essay here...',
+        placeholder: 'Sample essay pre-loaded below...',
     });
+
+    // Pre-fill with demo essay
+    quill.setText(DEMO_ESSAY_TEXT);
 
     quill.on('text-change', () => {
         const text = quill.getText().trim();
         const wordCount = text.length > 0 ? text.split(/\s+/).length : 0;
         wordCountBadge.textContent = `${wordCount} words`;
+        lastEssayText = quill.getText().trim();
     });
 
     // ==========================================================================
-    // 4. Core Functionality & Event Listeners
+    // 4. Event Listeners
     // ==========================================================================
-    
-    challengeBtn.addEventListener('click', handleChallenge);
 
-    if (changeKeyBtn) {
-        changeKeyBtn.addEventListener('click', () => {
-            localStorage.removeItem('geminiApiKey');
-            window.location.href = '/login';
-        });
-    }
-
-    document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-            e.preventDefault();
-            handleChallenge();
-        }
-    });
-
-    // Theme toggle (default blue theme <-> orange)
-    if (themeToggle) {
-        const body = document.body;
-
-        const applyTheme = (theme) => {
-            const isOrange = theme === 'orange';
-            body.classList.toggle('theme-orange', isOrange);
-
-            // Swap toggle icon and brand icon to reflect current theme
-            themeToggle.innerHTML = isOrange
-                ? '<i class="fa-solid fa-sun"></i>'
-                : '<i class="fa-solid fa-moon"></i>';
-
-            if (brandIconImg) {
-                brandIconImg.src = isOrange ? '/icon.jpg' : '/iconBlue.jpg';
-            }
-        };
-
-        const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'purple';
-        applyTheme(savedTheme);
-
-        themeToggle.addEventListener('click', () => {
-            const isCurrentlyOrange = body.classList.contains('theme-orange');
-            const nextTheme = isCurrentlyOrange ? 'purple' : 'orange';
-            applyTheme(nextTheme);
-            localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
-        });
-    }
-
-    if (feedbackViewToggle) {
-        feedbackViewToggle.addEventListener('click', () => {
-            useTabsView = !useTabsView;
-            const isOn = useTabsView;
-            feedbackViewToggle.classList.toggle('switcher-on', isOn);
-            feedbackViewToggle.setAttribute('aria-pressed', isOn);
-            feedbackViewToggle.setAttribute('aria-label', isOn ? 'View as tabs (on)' : 'View as cards (off)');
-            if (lastFeedbackData && lastEssayText !== undefined) {
-                renderFeedback(lastFeedbackData, lastEssayText);
-            }
-        });
-    }
-
-    sampleBtn.addEventListener('click', () => {
-        const sampleEssay = `The pervasive influence of social media on teen mental health is a pressing contemporary issue. While these platforms offer avenues for connection, they also present significant risks that cannot be ignored.\n\nThe constant exposure to curated, idealized lives can foster feelings of inadequacy and low self-esteem among adolescents. Studies have shown a correlation between high social media usage and increased rates of anxiety and depression. The pressure to maintain a perfect online persona creates a stressful environment where teens feel they are under constant scrutiny.\n\nFurthermore, cyberbullying has become a rampant problem, extending schoolyard conflicts into the digital realm, where they can persist 24/7. This form of harassment can have devastating and long-lasting psychological effects on its victims, who often feel isolated and helpless.\n\nIn conclusion, while social media is an integral part of modern adolescent life, it is crucial for parents, educators, and policymakers to address its dark side. Fostering digital literacy and promoting a healthier, more balanced relationship with these powerful platforms is essential for protecting the mental well-being of the next generation.`;
-        quill.setText(sampleEssay);
-        showToast('Sample essay loaded.', 'info');
-    });
+    demoChallengeBtn.addEventListener('click', loadDemoFeedback);
 
     clearBtn.addEventListener('click', () => {
         quill.setText('');
@@ -144,181 +93,90 @@ document.addEventListener('DOMContentLoaded', () => {
         unlockedCount = 0;
         sessionLog = [];
         updateProgressTracker();
-        const exportBtn = document.getElementById('export-btn');
-        if (exportBtn) exportBtn.style.display = 'none';
-        showToast('Editor cleared.', 'info');
+        hideExportButton();
+        showToast('Editor cleared. Click "Load Demo Feedback" to reload the demo.', 'info');
     });
+
+    if (feedbackViewToggle) {
+        feedbackViewToggle.addEventListener('click', () => {
+            useTabsView = !useTabsView;
+            const isOn = useTabsView;
+            feedbackViewToggle.classList.toggle('switcher-on', isOn);
+            feedbackViewToggle.setAttribute('aria-pressed', isOn);
+            renderFeedback(DEMO_FEEDBACK, lastEssayText);
+            updateFeedbackState('results');
+        });
+    }
 
     const exportBtn = document.getElementById('export-btn');
     if (exportBtn) {
         exportBtn.addEventListener('click', exportSession);
     }
 
-    uploadBtn.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                quill.setText(e.target.result);
-                showToast('File uploaded successfully.', 'success');
-            };
-            reader.onerror = () => { showToast('Error reading file.', 'error'); };
-            reader.readAsText(file);
-        }
-    });
-
-    const personaCards = document.querySelectorAll('.persona-card');
-    if (personaCards.length) {
-        personaCards.forEach(card => {
-            card.addEventListener('click', () => {
-                document.querySelector('.persona-card.selected')?.classList.remove('selected');
-                card.classList.add('selected');
-                currentPersona = card.dataset.persona;
-            });
-        });
-        const defaultPersonaCard = document.querySelector(`.persona-card[data-persona="${currentPersona}"]`);
-        defaultPersonaCard?.classList.add('selected');
-    }
-
-    const personaTabs = document.querySelectorAll('.persona-tab');
-    if (personaTabs.length) {
-        const applyPersonaTabState = (persona) => {
-            personaTabs.forEach(tab => {
-                const isSelected = tab.dataset.persona === persona;
-                tab.setAttribute('aria-selected', String(isSelected));
-            });
-        };
-
-        applyPersonaTabState(currentPersona);
-
-        personaTabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                const nextPersona = tab.dataset.persona;
-                if (!nextPersona) return;
-                currentPersona = nextPersona;
-                applyPersonaTabState(currentPersona);
-            });
-        });
-    }
-
-    // ==========================================================================
-    // 5. API Communication
-    // ==========================================================================
-    async function handleChallenge() {
-        if (isLoading) return;
-        const essayText = quill.getText().trim();
-        if (essayText.length < 20) {
-            showToast('Please write at least 20 words to get a challenge.', 'error');
-            return;
-        }
-
-        setLoadingState(true);
-        updateFeedbackState('loading');
-
-        try {
-            const response = await fetch('/challenge', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ essay: essayText, persona: currentPersona, geminiApiKey: GEMINI_API_KEY }),
-            });
-
-            if (!response.ok) {
-                let errorMsg = `Server error (${response.status})`;
-                try {
-                    const errBody = await response.json();
-                    if (errBody?.error) errorMsg = errBody.error;
-                } catch {}
-                if (response.status === 401) {
-                    errorMsg = 'API key rejected. Please check your Gemini API key and try again.';
-                }
-                throw new Error(errorMsg);
+    // Theme toggle
+    if (themeToggle) {
+        const body = document.body;
+        const applyTheme = (theme) => {
+            const isOrange = theme === 'orange';
+            body.classList.toggle('theme-orange', isOrange);
+            themeToggle.innerHTML = isOrange
+                ? '<i class="fa-solid fa-sun"></i>'
+                : '<i class="fa-solid fa-moon"></i>';
+            if (brandIconImg) {
+                brandIconImg.src = isOrange ? '/icon.jpg' : '/iconBlue.jpg';
             }
+        };
+        const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'purple';
+        applyTheme(savedTheme);
+        themeToggle.addEventListener('click', () => {
+            const isCurrentlyOrange = body.classList.contains('theme-orange');
+            const nextTheme = isCurrentlyOrange ? 'purple' : 'orange';
+            applyTheme(nextTheme);
+            localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+        });
+    }
 
-            const data = await response.json();
-            renderFeedback(data, essayText); // Pass essay text for unlock endpoint
+    // ==========================================================================
+    // 5. Demo Feedback Loading
+    // ==========================================================================
+
+    function loadDemoFeedback() {
+        updateFeedbackState('loading');
+        demoChallengeBtn.classList.add('loading');
+        demoChallengeBtn.disabled = true;
+
+        // Short delay to show the loading state, then render pre-baked feedback
+        setTimeout(() => {
+            renderFeedback(DEMO_FEEDBACK, lastEssayText);
             updateFeedbackState('results');
-            // counters removed from header
-
-        } catch (error) {
-            console.error('Error getting feedback:', error);
-            showToast(error.message || 'Failed to get feedback from the server.', 'error');
-            updateFeedbackState('empty');
-            totalChallenges = 0;
-            unlockedCount = 0;
-            updateProgressTracker();
-        } finally {
-            setLoadingState(false);
-        }
+            demoChallengeBtn.classList.remove('loading');
+            demoChallengeBtn.disabled = false;
+            showToast('Demo feedback loaded! Try writing a reflection.', 'info');
+        }, 800);
     }
+
+    // Auto-load demo feedback on page load after a brief delay
+    setTimeout(() => {
+        loadDemoFeedback();
+    }, 600);
 
     // ==========================================================================
-    // 6. UI Update Functions
+    // 6. Feedback Rendering
     // ==========================================================================
-    
-    function setLoadingState(state) {
-        isLoading = state;
-        challengeBtn.classList.toggle('loading', state);
-        challengeBtn.disabled = state;
-    }
-
-    function updateFeedbackState(state) {
-        feedbackEmpty.style.display = 'none';
-        feedbackLoading.style.display = 'none';
-        feedbackResults.style.display = 'none';
-
-        if (state === 'loading') {
-            feedbackLoading.style.display = 'block';
-        } else if (state === 'results') {
-            feedbackResults.style.display = 'block';
-        } else {
-            feedbackEmpty.style.display = 'block';
-        }
-    }
 
     function renderFeedback(data, essayText) {
-        lastFeedbackData = data;
         lastEssayText = essayText;
         feedbackResults.innerHTML = '';
         sessionLog = [];
-        const exportBtnEl = document.getElementById('export-btn');
-        if (exportBtnEl) exportBtnEl.style.display = 'none';
+        hideExportButton();
 
-        // Map backend fields into UI labels.
-        // For Confused Reader we intentionally only surface two questions:
-        // Clarification + Co-Construction.
-        let entries;
-        if (currentPersona === 'confusedReader') {
-            const questions = {
-                'Clarification Question': {
-                    // Prefer the specialized field if present, fall back to generic.
-                    question: data.clarification_question || data.claim_question,
-                    excerpt: data.clarification_excerpt || data.claim_excerpt || null,
-                },
-                'Co-Construction Question': {
-                    // Support both static (`coconstruction_...`) and dynamic
-                    // (`co_construction_...`) naming, with generic as a final fallback.
-                    question:
-                        data.coconstruction_question ||
-                        data.co_construction_question ||
-                        data.reasoning_question,
-                    excerpt:
-                        data.coconstruction_excerpt ||
-                        data.co_construction_excerpt ||
-                        data.reasoning_excerpt ||
-                        null,
-                },
-            };
-            entries = Object.entries(questions).filter(([, p]) => p.question);
-        } else {
-            const questions = {
-                CLAIM: { question: data.claim_question, excerpt: data.claim_excerpt || null },
-                REASONING: { question: data.reasoning_question, excerpt: data.reasoning_excerpt || null },
-                COUNTERARGUMENT: { question: data.counterargument_question, excerpt: data.counterargument_excerpt || null },
-                'SCOPE / IMPLICATION': { question: data.scope_or_implication_question, excerpt: data.scope_or_implication_excerpt || null },
-            };
-            entries = Object.entries(questions).filter(([, p]) => p.question);
-        }
+        const questions = {
+            CLAIM: { question: data.claim_question, excerpt: data.claim_excerpt || null },
+            REASONING: { question: data.reasoning_question, excerpt: data.reasoning_excerpt || null },
+            COUNTERARGUMENT: { question: data.counterargument_question, excerpt: data.counterargument_excerpt || null },
+            'SCOPE / IMPLICATION': { question: data.scope_or_implication_question, excerpt: data.scope_or_implication_excerpt || null },
+        };
+        const entries = Object.entries(questions).filter(([, p]) => p.question);
 
         totalChallenges = entries.length;
         unlockedCount = 0;
@@ -328,7 +186,6 @@ document.addEventListener('DOMContentLoaded', () => {
             feedbackResults.classList.remove('feedback-cards-view');
             renderFeedbackAsTabs(entries, essayText);
         } else {
-            /* Cards view: only the 4 cards, no "How would you address this?" */
             feedbackResults.classList.add('feedback-cards-view');
             entries.forEach(([title, payload]) => {
                 const { question, excerpt } = payload;
@@ -400,15 +257,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (excerpt && typeof excerpt === 'string' && excerpt.trim().length > 0) {
             card.dataset.excerpt = excerpt;
-
-            const attachHighlightListeners = (el) => {
-                el.addEventListener('mouseenter', () => highlightExcerptInEditor(excerpt));
-                el.addEventListener('mouseleave', clearEditorHighlight);
-                el.addEventListener('focus', () => highlightExcerptInEditor(excerpt));
-                el.addEventListener('blur', clearEditorHighlight);
-            };
-
-            attachHighlightListeners(card);
+            card.addEventListener('mouseenter', () => highlightExcerptInEditor(excerpt));
+            card.addEventListener('mouseleave', clearEditorHighlight);
+            card.addEventListener('focus', () => highlightExcerptInEditor(excerpt));
+            card.addEventListener('blur', clearEditorHighlight);
         }
 
         return card;
@@ -425,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reflectionSection.className = 'reflection-section';
         reflectionSection.innerHTML = `
             <label class="reflection-label"><i class="fa-solid fa-pen-to-square"></i> How would you address this?</label>
-            <textarea class="reflection-input" rows="4" placeholder="e.g., 'I could strengthen my thesis by...'" ></textarea>
+            <textarea class="reflection-input" rows="4" placeholder="e.g., 'I could strengthen my thesis by...'"></textarea>
             <button type="button" class="get-suggestions-btn button primary">
                 <span class="btn-icon"><i class="fa-solid fa-lock-open"></i></span>
                 <span class="btn-text">Unlock Suggestion</span>
@@ -446,21 +298,21 @@ document.addEventListener('DOMContentLoaded', () => {
             getSuggestionsBtn.disabled = true;
 
             try {
+                // No geminiApiKey field — server uses .env fallback
                 const unlockResponse = await fetch('/unlock', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        essay: essayText,
+                        essay: lastEssayText,
                         question: question,
                         userDefense: userDefense,
                         label: title,
                         excerpt: excerpt || null,
-                        geminiApiKey: GEMINI_API_KEY,
                     }),
                 });
 
                 if (!unlockResponse.ok) {
-                    let unlockErrMsg = 'Failed to get suggestion.';
+                    let unlockErrMsg = 'Failed to get suggestion. The server may need a GEMINI_API_KEY configured.';
                     try {
                         const errBody = await unlockResponse.json();
                         if (errBody?.error) unlockErrMsg = errBody.error;
@@ -479,10 +331,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     suggestion: suggestionData.suggestion,
                     tip: suggestionData.tip || '',
                 });
+
                 unlockedCount++;
                 updateProgressTracker();
-                const exportBtnEl = document.getElementById('export-btn');
-                if (exportBtnEl) exportBtnEl.style.display = 'inline-flex';
+                showExportButton();
 
                 getSuggestionsBtn.remove();
                 reflectionSection.querySelector('.reflection-input').disabled = true;
@@ -514,7 +366,9 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('Suggestion unlocked!', 'success');
     }
 
-    function updateSessionStats() {}
+    // ==========================================================================
+    // 7. Progress Tracker
+    // ==========================================================================
 
     function updateProgressTracker() {
         const tracker = document.getElementById('progress-tracker');
@@ -537,6 +391,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // ==========================================================================
+    // 8. Export Session
+    // ==========================================================================
+
+    function showExportButton() {
+        const btn = document.getElementById('export-btn');
+        if (btn) btn.style.display = 'inline-flex';
+    }
+
+    function hideExportButton() {
+        const btn = document.getElementById('export-btn');
+        if (btn) btn.style.display = 'none';
+    }
+
     function escapeHtml(str) {
         if (!str) return '';
         return String(str)
@@ -553,7 +421,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ? lastEssayText.slice(0, 500) + '…'
             : lastEssayText;
 
-        const personaLabel = currentPersona === 'confusedReader' ? 'Confused Reader' : 'Reviewer 2';
         const dateStr = new Date().toLocaleDateString('en-US', {
             year: 'numeric', month: 'long', day: 'numeric'
         });
@@ -600,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <body>
     <header>
         <h1>Prober.ai — Reflection Session</h1>
-        <div class="meta">Date: ${dateStr} &nbsp;|&nbsp; Persona: ${personaLabel} &nbsp;|&nbsp; Challenges completed: ${sessionLog.length}</div>
+        <div class="meta">Date: ${dateStr} &nbsp;|&nbsp; Persona: Reviewer 2 (Demo) &nbsp;|&nbsp; Challenges completed: ${sessionLog.length}</div>
     </header>
     <div class="essay-preview">
         <h2>Essay excerpt (first 500 characters)</h2>${escapeHtml(essaySnippet)}
@@ -617,6 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
             win.focus();
             showToast('Session exported! Use Ctrl+P to print or save as PDF.', 'success');
         } else {
+            // Fallback: direct download
             const a = document.createElement('a');
             a.href = url;
             a.download = `prober-session-${Date.now()}.html`;
@@ -626,58 +494,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================================================
-    // 7. Editor Context Highlighting for Devil's Advocate Cards
+    // 9. Editor Highlighting
     // ==========================================================================
 
     function clearEditorHighlight() {
         if (!currentHighlightRange) return;
-
         const { index, length } = currentHighlightRange;
-        try {
-            quill.formatText(index, length, { background: false });
-        } catch {
-            // No-op if range is out of bounds or editor unavailable
-        }
+        try { quill.formatText(index, length, { background: false }); } catch {}
         currentHighlightRange = null;
     }
 
     function highlightExcerptInEditor(excerpt) {
         if (!excerpt || typeof excerpt !== 'string') return;
-
         const cleanedExcerpt = excerpt.trim();
         if (!cleanedExcerpt) return;
-
         const editorText = quill.getText();
         const index = editorText.indexOf(cleanedExcerpt);
-
-        if (index === -1) {
-            clearEditorHighlight();
-            return;
-        }
-
+        if (index === -1) { clearEditorHighlight(); return; }
         clearEditorHighlight();
-
         const length = cleanedExcerpt.length;
         try {
-            quill.formatText(index, length, { background: 'rgba(250, 204, 21, 0.4)' }); // soft yellow
+            quill.formatText(index, length, { background: 'rgba(250, 204, 21, 0.4)' });
             currentHighlightRange = { index, length };
-        } catch {
-            currentHighlightRange = null;
-        }
+        } catch { currentHighlightRange = null; }
     }
 
     // ==========================================================================
-    // 8. UI Enhancements
+    // 10. UI Helpers
     // ==========================================================================
+
+    function updateFeedbackState(state) {
+        feedbackEmpty.style.display = 'none';
+        feedbackLoading.style.display = 'none';
+        feedbackResults.style.display = 'none';
+
+        if (state === 'loading') {
+            feedbackLoading.style.display = 'block';
+        } else if (state === 'results') {
+            feedbackResults.style.display = 'block';
+        } else {
+            feedbackEmpty.style.display = 'block';
+        }
+    }
 
     function showToast(message, type = 'info') {
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
-        const icons = {
-            info: 'fa-circle-info',
-            success: 'fa-circle-check',
-            error: 'fa-fire-flame-curved',
-        };
+        const icons = { info: 'fa-circle-info', success: 'fa-circle-check', error: 'fa-fire-flame-curved' };
         toast.innerHTML = `
             <div class="toast-icon"><i class="fa-solid ${icons[type]}"></i></div>
             <div class="toast-body">
@@ -692,35 +555,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3500);
     }
 
-    const slides = document.querySelectorAll('.tip-slide');
-    const dots = document.querySelectorAll('.carousel-dots .dot');
-    let currentSlide = 0;
-
-    if (slides.length && dots.length) {
-        function showSlide(index) {
-            slides.forEach((slide, i) => {
-                slide.classList.toggle('active', i === index);
-                if (dots[i]) {
-                    dots[i].classList.toggle('active', i === index);
-                }
-            });
-        }
-
-        setInterval(() => {
-            currentSlide = (currentSlide + 1) % slides.length;
-            showSlide(currentSlide);
-        }, 5000);
-
-        dots.forEach(dot => {
-            dot.addEventListener('click', (e) => {
-                currentSlide = parseInt(e.target.dataset.slide);
-                showSlide(currentSlide);
-            });
-        });
+    // Particle background
+    const particlesContainer = document.getElementById('particles');
+    for (let i = 0; i < 15; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        const size = Math.random() * 150 + 150;
+        particle.style.width = `${size}px`;
+        particle.style.height = `${size}px`;
+        particle.style.left = `${Math.random() * 100}%`;
+        particle.style.animationDuration = `${Math.random() * 20 + 20}s`;
+        particle.style.animationDelay = `${Math.random() * 15}s`;
+        particlesContainer.appendChild(particle);
     }
 
+    // Ripple effect on buttons
     document.querySelectorAll('.button').forEach(button => {
-        button.addEventListener('click', function (e) {
+        button.addEventListener('click', function(e) {
             const rect = this.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
@@ -734,34 +585,10 @@ document.addEventListener('DOMContentLoaded', () => {
             circle.style.top = `${y - radius}px`;
             circle.classList.add('ripple');
             this.appendChild(circle);
-            setTimeout(() => {
-                if (circle.parentElement) circle.remove();
-            }, 600);
+            setTimeout(() => { if (circle.parentElement) circle.remove(); }, 600);
         });
     });
 
-    // --- Initializations ---
+    // Init
     updateFeedbackState('empty');
-
-    // --- Particle Generator ---
-    const particlesContainer = document.getElementById('particles');
-    const numParticles = 15;
-
-    for (let i = 0; i < numParticles; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'particle';
-        
-        const size = Math.random() * 150 + 150; // 150px to 300px
-        const left = Math.random() * 100; // 0% to 100%
-        const duration = Math.random() * 20 + 20; // 20s to 40s
-        const delay = Math.random() * 15; // 0s to 15s
-
-        particle.style.width = `${size}px`;
-        particle.style.height = `${size}px`;
-        particle.style.left = `${left}%`;
-        particle.style.animationDuration = `${duration}s`;
-        particle.style.animationDelay = `${delay}s`;
-
-        particlesContainer.appendChild(particle);
-    }
 });
