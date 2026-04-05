@@ -32,9 +32,10 @@ The server also accepts a user-supplied key from the browser's `localStorage` (`
 
 ```
 Browser (login page) --> localStorage stores geminiApiKey
-Browser --> GET /app --> index.html + script.js
+Browser --> GET /app  --> index.html + script.js
+Browser --> GET /demo --> demo.html + demo.js  (no API key needed)
 script.js --> POST /challenge { essay, persona, geminiApiKey }
-           --> POST /unlock  { essay, question, userDefense, geminiApiKey }
+           --> POST /unlock  { essay, label, excerpt, question, userDefense, geminiApiKey }
 ```
 
 ### Backend (`essay-tutor/server.js`)
@@ -44,8 +45,10 @@ Single Express file handling all routes:
 - `GET /` → `home.html`
 - `GET /login` → `login.html`
 - `GET /app` → `index.html` (main editor UI)
+- `GET /demo` → `demo.html` (self-contained demo with pre-baked feedback; no API key required)
+- `GET /samples/*` → static files from `../essay-tutor-static/samples/` (shared sample essays for the "Try Sample" button)
 - `POST /challenge` — sends the student's essay to Gemini with a persona-specific system prompt; returns structured JSON questions
-- `POST /unlock` — after the student writes a defense, sends it to Gemini to unlock a concrete revision suggestion; returns `{ suggestion, tip }`
+- `POST /unlock` — after the student writes a defense, sends it to Gemini to unlock a concrete revision suggestion; accepts `label` and `excerpt` alongside the essay/question/defense; returns `{ suggestion, tip }`
 
 The `getModel(requestApiKey)` helper resolves the API key: user-supplied first, `.env` fallback.
 
@@ -63,9 +66,11 @@ The `/challenge` response also includes backwards-compatible generic fields (`cl
 ### Frontend (`essay-tutor/public/`)
 
 - `index.html` + `script.js` — main app (Quill editor, persona selector, feedback panel)
+- `demo.html` + `demo.js` — offline demo mode with a pre-baked essay + feedback (both personas); no server calls
 - `home.html` + `home.js` — landing/portal page
 - `login.html` — API key entry; stores key in `localStorage`
 - `style.css` — all styles; uses CSS variables for theming
+- `icon.jpg` / `iconBlue.jpg` — brand icons used in the nav bar
 
 Key frontend state in `script.js`:
 - `currentPersona` — drives which persona card is active and what fields to render from the `/challenge` response

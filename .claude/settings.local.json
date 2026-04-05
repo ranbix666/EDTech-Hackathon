@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pdflatex --version)",
+      "Bash(pdflatex -interaction=nonstopmode technical_report.tex)",
+      "Bash(grep -n \"\\\\\\\\\\\\\\\\begin{figure}\\\\|\\\\\\\\\\\\\\\\end{figure}\\\\|\\\\\\\\\\\\\\\\begin{lstlisting}\\\\|\\\\\\\\\\\\\\\\end{lstlisting}\\\\|\\\\\\\\\\\\\\\\begin{algorithm}\\\\|\\\\\\\\\\\\\\\\end{algorithm}\" technical_report.tex)",
+      "Bash(grep -n \"language=json\\\\|breakable\\\\|\\\\\\\\\\\\\\\\tcbuselibrary\" technical_report.tex)",
+      "Bash(bibtex technical_report)"
+    ]
+  }
+}
