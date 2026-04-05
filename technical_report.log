@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.8)  5 APR 2026 15:22
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.8)  5 APR 2026 15:33
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1003,7 +1003,13 @@ nput line 327.
  [7]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10.95> not available
 (Font)              Font shape `T1/lmtt/b/n' tried instead on input line 370.
- [8] [9] [10]
+ [8]
+Overfull \hbox (8.31638pt too wide) in paragraph at lines 436--437
+\T1/lmr/m/sc/10.95 Prober.ai \T1/lmr/m/n/10.95 was de-vel-oped over a one-month
+ com-pe-ti-tion pe-riod dur-ing the NY EdTech Hackathon
+ []
+
+[9] [10]
 Overfull \hbox (4.58807pt too wide) in paragraph at lines 477--478
 \T1/lmr/m/n/10.95 tion, ar-gu-men-ta-tive writ-ing im-prove-ment, and learn-ing
  out-comes re-main the-o-ret-i-cal, grounded
@@ -1075,7 +1081,7 @@ sers/biran/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmtk10.pfb><C:/U
 sers/biran/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmtt10.pfb><C:/U
 sers/biran/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/symbols/ms
 am10.pfb>
-Output written on technical_report.pdf (14 pages, 393825 bytes).
+Output written on technical_report.pdf (14 pages, 393821 bytes).
 PDF statistics:
  418 PDF objects out of 1000 (max. 8388607)
  109 named destinations out of 1000 (max. 500000)
