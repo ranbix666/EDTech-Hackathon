@@ -43,6 +43,10 @@
             </div>
         </div>
         <div class="topnav-right">
+            <div id="study-status-badge" class="study-status-badge" hidden aria-live="polite"></div>
+            <button id="study-setup-btn" class="change-key-btn study-setup-btn" type="button" aria-label="Open study setup">
+                <i class="fa-solid fa-flask-vial"></i> Study Setup
+            </button>
             <button id="change-key-btn" class="change-key-btn" type="button" aria-label="Change Gemini API key">
                 <i class="fa-solid fa-key"></i> API Key
             </button>
@@ -161,6 +165,52 @@
                 </div>
             </div>
         </section>
+    </div>
+
+    <div id="study-setup-modal" class="study-setup-modal" hidden>
+        <div class="study-setup-backdrop" data-study-close="true"></div>
+        <div class="study-setup-dialog panel" role="dialog" aria-modal="true" aria-labelledby="study-setup-title">
+            <div class="study-setup-header">
+                <div>
+                    <h2 id="study-setup-title">Study Setup</h2>
+                    <p>Configure participant metadata and local logging for a research session.</p>
+                </div>
+                <button id="study-setup-close-btn" class="icon-button study-close-btn" type="button" aria-label="Close study setup">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form id="study-setup-form" class="study-setup-form">
+                <label class="study-toggle-row" for="study-enabled-input">
+                    <span>
+                        <strong>Enable study logging</strong>
+                        <small>Turns on server-side session, event, challenge, unlock, and draft capture.</small>
+                    </span>
+                    <input id="study-enabled-input" type="checkbox">
+                </label>
+
+                <label class="study-field">
+                    <span>Participant ID</span>
+                    <input id="study-participant-input" type="text" autocomplete="off" placeholder="e.g., P001">
+                </label>
+
+                <label class="study-field">
+                    <span>Study Condition</span>
+                    <input id="study-condition-input" type="text" autocomplete="off" placeholder="e.g., reviewer2, baseline, gated-ai">
+                </label>
+
+                <label class="study-field">
+                    <span>Prompt ID</span>
+                    <input id="study-prompt-input" type="text" autocomplete="off" placeholder="e.g., essayA">
+                </label>
+
+                <p class="study-setup-note">Settings are stored in this browser. Saving starts a fresh study session for the current participant.</p>
+
+                <div class="study-setup-actions">
+                    <button id="study-clear-btn" class="button ghost" type="button">Clear</button>
+                    <button class="button primary" type="submit">Save Study Setup</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <div id="toast-container"></div>

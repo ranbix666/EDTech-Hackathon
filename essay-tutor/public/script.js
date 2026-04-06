@@ -26,6 +26,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const wordCountBadge = document.querySelector('.word-count-badge');
     
     const toastContainer = document.getElementById('toast-container');
+    const studySetupBtn = document.getElementById('study-setup-btn');
+    const studyStatusBadge = document.getElementById('study-status-badge');
+    const studySetupModal = document.getElementById('study-setup-modal');
+    const studySetupCloseBtn = document.getElementById('study-setup-close-btn');
+    const studySetupForm = document.getElementById('study-setup-form');
+    const studyClearBtn = document.getElementById('study-clear-btn');
+    const studyEnabledInput = document.getElementById('study-enabled-input');
+    const studyParticipantInput = document.getElementById('study-participant-input');
+    const studyConditionInput = document.getElementById('study-condition-input');
+    const studyPromptInput = document.getElementById('study-prompt-input');
 
     // ==========================================================================
     // 2. State Management
@@ -41,21 +51,23 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastFeedbackData = null;
     let lastEssayText = '';
     const THEME_STORAGE_KEY = 'essayMentorTheme';
+    const STUDY_CONFIG_STORAGE_KEY = 'essayMentorStudyConfig';
     const STUDY_PARTICIPANT_STORAGE_KEY = 'essayMentorStudyParticipantId';
+    const EDITOR_IDLE_AUTOSAVE_MS = 20000;
+    const PERIODIC_AUTOSAVE_MS = 90000;
     const urlParams = new URLSearchParams(window.location.search);
-    const studyConditionFromUrl = urlParams.get('condition') || urlParams.get('studyCondition') || null;
-    const promptIdFromUrl = urlParams.get('promptId') || null;
-    const studyModeEnabled = ['1', 'true', 'yes'].includes((urlParams.get('study') || urlParams.get('studyMode') || '').toLowerCase())
-        || Boolean(urlParams.get('participantId'))
-        || Boolean(studyConditionFromUrl)
-        || Boolean(promptIdFromUrl);
     let totalChallenges = 0;
     let unlockedCount = 0;
     let sessionLog = [];
+    let studyConfig = null;
+    let studyModeEnabled = false;
     let studyParticipantId = null;
     let studySessionId = null;
     let draftVersionNumber = 0;
     let lastSavedDraftText = '';
+    let autosaveTimeoutId = null;
+    let hasLoggedEssayEditStart = false;
+    let hasLoggedAllUnlocked = false;
 
     // ==========================================================================
     // 3. Quill Editor Setup
@@ -74,15 +86,61 @@ document.addEventListener('DOMContentLoaded', () => {
         placeholder: 'Start writing your essay here...',
     });
 
-    quill.on('text-change', () => {
+    quill.on('text-change', (_delta, _oldDelta, source) => {
         const text = quill.getText().trim();
         const wordCount = text.length > 0 ? text.split(/\s+/).length : 0;
         wordCountBadge.textContent = `${wordCount} words`;
+
+        if (source === 'user' && studyModeEnabled) {
+            if (!hasLoggedEssayEditStart) {
+                hasLoggedEssayEditStart = true;
+                logStudyEvent('essay_edit_started', {
+                    currentPersona,
+                    currentWordCount: wordCount,
+                });
+            }
+            scheduleDraftAutosave('autosave_idle');
+        }
     });
 
     function sanitizeStudyValue(value) {
         if (!value) return null;
         return String(value).trim().replace(/[^\w-]/g, '');
+    }
+
+    function loadStoredStudyConfig() {
+        try {
+            const raw = localStorage.getItem(STUDY_CONFIG_STORAGE_KEY);
+            return raw ? JSON.parse(raw) : {};
+        } catch {
+            return {};
+        }
+    }
+
+    function buildInitialStudyConfig() {
+        const stored = loadStoredStudyConfig();
+        const urlCondition = urlParams.get('condition') || urlParams.get('studyCondition');
+        const urlPromptId = urlParams.get('promptId');
+        const urlParticipantId = urlParams.get('participantId');
+        const explicitStudyQuery = (urlParams.get('study') || urlParams.get('studyMode') || '').toLowerCase();
+        const enabledFromUrl = ['1', 'true', 'yes'].includes(explicitStudyQuery);
+
+        return {
+            enabled: enabledFromUrl
+                || Boolean(urlParticipantId)
+                || Boolean(urlCondition)
+                || Boolean(urlPromptId)
+                || Boolean(stored.enabled),
+            participantId: sanitizeStudyValue(urlParticipantId)
+                || sanitizeStudyValue(stored.participantId)
+                || '',
+            studyCondition: sanitizeStudyValue(urlCondition)
+                || sanitizeStudyValue(stored.studyCondition)
+                || '',
+            promptId: sanitizeStudyValue(urlPromptId)
+                || sanitizeStudyValue(stored.promptId)
+                || '',
+        };
     }
 
     function generateClientId(prefix) {
@@ -102,8 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return {
             participantId: studyParticipantId,
             sessionId: studySessionId,
-            studyCondition: studyConditionFromUrl,
-            promptId: promptIdFromUrl,
+            studyCondition: studyConfig?.studyCondition || null,
+            promptId: studyConfig?.promptId || null,
             essayVersionNumber: draftVersionNumber,
             ...overrides,
         };
@@ -138,19 +196,179 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function resolveParticipantId() {
-        const participantFromUrl = sanitizeStudyValue(urlParams.get('participantId'));
-        const participantFromStorage = sanitizeStudyValue(localStorage.getItem(STUDY_PARTICIPANT_STORAGE_KEY));
-        const promptedParticipant = participantFromUrl || participantFromStorage
-            ? null
-            : sanitizeStudyValue(window.prompt('Enter your study participant ID:', ''));
-        const participantId = participantFromUrl
-            || participantFromStorage
-            || promptedParticipant
-            || generateClientId('pilot');
+    function persistStudyConfig() {
+        localStorage.setItem(STUDY_CONFIG_STORAGE_KEY, JSON.stringify(studyConfig));
+        if (studyConfig.participantId) {
+            localStorage.setItem(STUDY_PARTICIPANT_STORAGE_KEY, studyConfig.participantId);
+        } else {
+            localStorage.removeItem(STUDY_PARTICIPANT_STORAGE_KEY);
+        }
+    }
 
-        localStorage.setItem(STUDY_PARTICIPANT_STORAGE_KEY, participantId);
-        return participantId;
+    function hydrateStudySetupForm() {
+        if (!studySetupForm) return;
+        studyEnabledInput.checked = studyConfig.enabled;
+        studyParticipantInput.value = studyConfig.participantId || '';
+        studyConditionInput.value = studyConfig.studyCondition || '';
+        studyPromptInput.value = studyConfig.promptId || '';
+        updateStudySetupFieldState();
+    }
+
+    function updateStudySetupFieldState() {
+        if (!studySetupForm) return;
+        const disabled = !studyEnabledInput.checked;
+        [studyParticipantInput, studyConditionInput, studyPromptInput].forEach((input) => {
+            input.disabled = disabled;
+        });
+    }
+
+    function updateStudyStatusBadge() {
+        if (!studyStatusBadge) return;
+        if (!studyModeEnabled) {
+            studyStatusBadge.hidden = true;
+            studyStatusBadge.textContent = '';
+            return;
+        }
+
+        const parts = [
+            studyConfig.participantId || 'pilot',
+            studyConfig.studyCondition || 'unassigned',
+        ];
+        studyStatusBadge.innerHTML = `<strong>Study</strong> ${parts.join(' / ')}`;
+        studyStatusBadge.hidden = false;
+    }
+
+    function openStudySetupModal() {
+        if (!studySetupModal) return;
+        hydrateStudySetupForm();
+        studySetupModal.hidden = false;
+        document.body.classList.add('study-setup-open');
+        if (studyEnabledInput.checked) {
+            studyParticipantInput.focus();
+        } else {
+            studyEnabledInput.focus();
+        }
+    }
+
+    function closeStudySetupModal() {
+        if (!studySetupModal) return;
+        studySetupModal.hidden = true;
+        document.body.classList.remove('study-setup-open');
+    }
+
+    function scheduleDraftAutosave(source = 'autosave_idle') {
+        if (!studyModeEnabled) return;
+        window.clearTimeout(autosaveTimeoutId);
+        autosaveTimeoutId = window.setTimeout(() => {
+            saveDraftSnapshot(source);
+        }, EDITOR_IDLE_AUTOSAVE_MS);
+    }
+
+    async function endStudySession(reason = 'session_completed', options = {}) {
+        const { useBeacon = false } = options;
+        if (!studySessionId) return;
+
+        window.clearTimeout(autosaveTimeoutId);
+        await saveDraftSnapshot('session_end', { force: true, useBeacon });
+        await logStudyEvent('session_completed', {
+            unlockedCount,
+            totalChallenges,
+            reason,
+        }, { useBeacon });
+
+        studySessionId = null;
+        studyParticipantId = null;
+        draftVersionNumber = 0;
+        lastSavedDraftText = '';
+        hasLoggedEssayEditStart = false;
+    }
+
+    async function initializeStudySession(reason = 'session_started') {
+        if (!studyModeEnabled) {
+            updateStudyStatusBadge();
+            return;
+        }
+
+        studyParticipantId = sanitizeStudyValue(studyConfig.participantId) || generateClientId('pilot');
+        studyConfig.participantId = studyParticipantId;
+        persistStudyConfig();
+
+        studySessionId = generateClientId('session');
+        draftVersionNumber = 0;
+        lastSavedDraftText = '';
+        hasLoggedEssayEditStart = false;
+
+        await postStudyJson('/study/session', {
+            participantId: studyParticipantId,
+            sessionId: studySessionId,
+            studyCondition: studyConfig.studyCondition || null,
+            promptId: studyConfig.promptId || null,
+            consentConfirmed: true,
+            startedAt: new Date().toISOString(),
+            initialPersona: currentPersona,
+            pagePath: window.location.pathname,
+            referrer: document.referrer || null,
+        });
+
+        await logStudyEvent('session_started', {
+            initialPersona: currentPersona,
+            feedbackView: useTabsView ? 'tabs' : 'cards',
+            reason,
+        });
+
+        updateStudyStatusBadge();
+    }
+
+    async function saveStudySetup(event) {
+        event.preventDefault();
+
+        const nextConfig = {
+            enabled: Boolean(studyEnabledInput.checked),
+            participantId: sanitizeStudyValue(studyParticipantInput.value) || '',
+            studyCondition: sanitizeStudyValue(studyConditionInput.value) || '',
+            promptId: sanitizeStudyValue(studyPromptInput.value) || '',
+        };
+
+        const wasEnabled = studyModeEnabled;
+        const previousParticipant = studyConfig?.participantId || null;
+        const previousCondition = studyConfig?.studyCondition || null;
+        const previousPromptId = studyConfig?.promptId || null;
+
+        if (wasEnabled && studySessionId) {
+            await endStudySession('study_setup_updated');
+        }
+
+        studyConfig = nextConfig;
+        studyModeEnabled = nextConfig.enabled;
+        persistStudyConfig();
+
+        if (studyModeEnabled) {
+            await initializeStudySession('study_setup_saved');
+            showToast('Study setup saved. A fresh study session is now active.', 'success');
+        } else {
+            updateStudyStatusBadge();
+            showToast('Study logging disabled for this browser.', 'info');
+        }
+
+        closeStudySetupModal();
+
+        if (!wasEnabled && studyModeEnabled) {
+            await logStudyEvent('study_enabled', {
+                participantId: studyConfig.participantId,
+                studyCondition: studyConfig.studyCondition,
+                promptId: studyConfig.promptId,
+            });
+        } else if (
+            previousParticipant !== studyConfig.participantId
+            || previousCondition !== studyConfig.studyCondition
+            || previousPromptId !== studyConfig.promptId
+        ) {
+            await logStudyEvent('study_config_changed', {
+                participantId: studyConfig.participantId,
+                studyCondition: studyConfig.studyCondition,
+                promptId: studyConfig.promptId,
+            });
+        }
     }
 
     async function logStudyEvent(eventType, payload = {}, options = {}) {
@@ -210,34 +428,48 @@ document.addEventListener('DOMContentLoaded', () => {
         ].filter(Boolean).length;
     }
 
-    async function initializeStudySession() {
-        if (!studyModeEnabled) return;
-        studyParticipantId = resolveParticipantId();
-        studySessionId = generateClientId('session');
-
-        await postStudyJson('/study/session', {
-            participantId: studyParticipantId,
-            sessionId: studySessionId,
-            studyCondition: studyConditionFromUrl,
-            promptId: promptIdFromUrl,
-            consentConfirmed: true,
-            startedAt: new Date().toISOString(),
-            initialPersona: currentPersona,
-            pagePath: window.location.pathname,
-            referrer: document.referrer || null,
-        });
-
-        await logStudyEvent('session_started', {
-            initialPersona: currentPersona,
-            feedbackView: useTabsView ? 'tabs' : 'cards',
-        });
-    }
+    studyConfig = buildInitialStudyConfig();
+    studyModeEnabled = Boolean(studyConfig.enabled);
 
     // ==========================================================================
     // 4. Core Functionality & Event Listeners
     // ==========================================================================
     
     challengeBtn.addEventListener('click', handleChallenge);
+
+    if (studySetupBtn) {
+        studySetupBtn.addEventListener('click', openStudySetupModal);
+    }
+
+    if (studySetupCloseBtn) {
+        studySetupCloseBtn.addEventListener('click', closeStudySetupModal);
+    }
+
+    if (studySetupModal) {
+        studySetupModal.addEventListener('click', (event) => {
+            if (event.target?.dataset?.studyClose === 'true') {
+                closeStudySetupModal();
+            }
+        });
+    }
+
+    if (studySetupForm) {
+        studySetupForm.addEventListener('submit', saveStudySetup);
+    }
+
+    if (studyEnabledInput) {
+        studyEnabledInput.addEventListener('change', updateStudySetupFieldState);
+    }
+
+    if (studyClearBtn) {
+        studyClearBtn.addEventListener('click', () => {
+            studyEnabledInput.checked = false;
+            studyParticipantInput.value = '';
+            studyConditionInput.value = '';
+            studyPromptInput.value = '';
+            updateStudySetupFieldState();
+        });
+    }
 
     if (changeKeyBtn) {
         changeKeyBtn.addEventListener('click', () => {
@@ -247,6 +479,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && studySetupModal && !studySetupModal.hidden) {
+            closeStudySetupModal();
+            return;
+        }
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
             e.preventDefault();
             handleChallenge();
@@ -310,6 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
         totalChallenges = 0;
         unlockedCount = 0;
         sessionLog = [];
+        hasLoggedAllUnlocked = false;
         updateProgressTracker();
         const exportBtn = document.getElementById('export-btn');
         if (exportBtn) exportBtn.style.display = 'none';
@@ -442,6 +679,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateFeedbackState('empty');
             totalChallenges = 0;
             unlockedCount = 0;
+            hasLoggedAllUnlocked = false;
             updateProgressTracker();
         } finally {
             setLoadingState(false);
@@ -518,6 +756,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         totalChallenges = entries.length;
         unlockedCount = 0;
+        hasLoggedAllUnlocked = false;
         updateProgressTracker();
 
         if (useTabsView && entries.length > 0) {
@@ -569,6 +808,14 @@ document.addEventListener('DOMContentLoaded', () => {
             panelsContainer.appendChild(panel);
         });
 
+        if (entries.length > 0) {
+            logStudyEvent('feedback_tab_opened', {
+                title: entries[0][0],
+                index: 0,
+                trigger: 'initial',
+            });
+        }
+
         tabList.querySelectorAll('.feedback-tab-btn').forEach((btn, i) => {
             btn.addEventListener('click', () => {
                 tabList.querySelectorAll('.feedback-tab-btn').forEach((b, j) => {
@@ -580,6 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 logStudyEvent('feedback_tab_opened', {
                     title: entries[i][0],
                     index: i,
+                    trigger: 'click',
                 });
             });
         });
@@ -600,12 +848,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (excerpt && typeof excerpt === 'string' && excerpt.trim().length > 0) {
             card.dataset.excerpt = excerpt;
+            let excerptEngagementStartedAt = null;
+
+            const startExcerptEngagement = (trigger) => {
+                highlightExcerptInEditor(excerpt);
+                if (excerptEngagementStartedAt) return;
+                excerptEngagementStartedAt = Date.now();
+                logStudyEvent('excerpt_engagement_started', {
+                    title,
+                    trigger,
+                    excerptLength: excerpt.length,
+                });
+            };
+
+            const endExcerptEngagement = (trigger) => {
+                clearEditorHighlight();
+                if (!excerptEngagementStartedAt) return;
+                const durationMs = Date.now() - excerptEngagementStartedAt;
+                excerptEngagementStartedAt = null;
+                logStudyEvent('excerpt_engagement_ended', {
+                    title,
+                    trigger,
+                    durationMs,
+                    excerptLength: excerpt.length,
+                });
+            };
 
             const attachHighlightListeners = (el) => {
-                el.addEventListener('mouseenter', () => highlightExcerptInEditor(excerpt));
-                el.addEventListener('mouseleave', clearEditorHighlight);
-                el.addEventListener('focus', () => highlightExcerptInEditor(excerpt));
-                el.addEventListener('blur', clearEditorHighlight);
+                el.addEventListener('mouseenter', () => startExcerptEngagement('mouse'));
+                el.addEventListener('mouseleave', () => endExcerptEngagement('mouse'));
+                el.addEventListener('focus', () => startExcerptEngagement('keyboard'));
+                el.addEventListener('blur', () => endExcerptEngagement('keyboard'));
             };
 
             attachHighlightListeners(card);
@@ -637,11 +910,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const reflectionInput = reflectionSection.querySelector('.reflection-input');
         const getSuggestionsBtn = reflectionSection.querySelector('.get-suggestions-btn');
         let hasLoggedReflectionStart = false;
+        let reflectionStartedAt = null;
+        let firstReflectionInputAt = null;
+        let lastReflectionInputAt = null;
 
         reflectionInput.addEventListener('focus', () => {
             if (hasLoggedReflectionStart) return;
             hasLoggedReflectionStart = true;
+            reflectionStartedAt = Date.now();
             logStudyEvent('reflection_started', { title, question });
+        });
+
+        reflectionInput.addEventListener('input', () => {
+            const now = Date.now();
+            if (!reflectionStartedAt) {
+                reflectionStartedAt = now;
+            }
+            if (!firstReflectionInputAt) {
+                firstReflectionInputAt = now;
+                logStudyEvent('reflection_typing_started', { title, question });
+            }
+            lastReflectionInputAt = now;
         });
 
         getSuggestionsBtn.addEventListener('click', async () => {
@@ -654,10 +943,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const trimmedDefense = userDefense.trim();
             const currentEssay = getCurrentEssayText() || essayText;
             const essayVersionNumber = await saveDraftSnapshot('before_unlock');
+            const now = Date.now();
+            const reflectionDurationMs = reflectionStartedAt ? now - reflectionStartedAt : null;
+            const idleBeforeSubmitMs = lastReflectionInputAt ? now - lastReflectionInputAt : null;
+            await logStudyEvent('reflection_submitted', {
+                title,
+                question,
+                essayVersionNumber,
+                durationMs: reflectionDurationMs,
+                idleBeforeSubmitMs,
+                defenseCharCount: trimmedDefense.length,
+                defenseWordCount: getPlainWordCount(trimmedDefense),
+            });
             await logStudyEvent('unlock_requested', {
                 title,
                 question,
                 essayVersionNumber,
+                reflectionDurationMs,
                 defenseWordCount: getPlainWordCount(trimmedDefense),
             });
 
@@ -765,7 +1067,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (unlockedCount >= totalChallenges) {
             tracker.classList.add('progress-tracker--complete');
-            showToast('All challenges unlocked! Consider exporting your session.', 'success');
+            if (!hasLoggedAllUnlocked) {
+                hasLoggedAllUnlocked = true;
+                saveDraftSnapshot('all_challenges_unlocked', { force: true });
+                logStudyEvent('all_challenges_unlocked', {
+                    unlockedCount,
+                    totalChallenges,
+                });
+                showToast('All challenges unlocked! Consider exporting your session.', 'success');
+            }
         } else {
             tracker.classList.remove('progress-tracker--complete');
         }
@@ -985,15 +1295,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Initializations ---
     updateFeedbackState('empty');
+    hydrateStudySetupForm();
+    updateStudyStatusBadge();
     initializeStudySession();
 
-    window.addEventListener('beforeunload', () => {
-        if (!studyModeEnabled) return;
-        saveDraftSnapshot('session_end', { force: true, useBeacon: true });
-        logStudyEvent('session_completed', {
+    window.setInterval(() => {
+        if (!studyModeEnabled || document.hidden) return;
+        saveDraftSnapshot('autosave_interval');
+    }, PERIODIC_AUTOSAVE_MS);
+
+    document.addEventListener('visibilitychange', () => {
+        if (!studyModeEnabled || !document.hidden) return;
+        saveDraftSnapshot('visibility_hidden', { useBeacon: true });
+        logStudyEvent('page_hidden', {
             unlockedCount,
             totalChallenges,
         }, { useBeacon: true });
+    });
+
+    window.addEventListener('beforeunload', () => {
+        if (!studyModeEnabled) return;
+        endStudySession('browser_unload', { useBeacon: true });
     });
 
     // --- Particle Generator ---

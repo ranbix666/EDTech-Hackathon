@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node server.js",
+    "export:study": "node scripts/export-study-logs.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {

@@ -3,3 +3,7 @@
 
 # Ignore the node_modules directory, which contains installed packages
 node_modules/
+
+# Ignore locally collected study data and derived exports
+study-logs/
+study-exports/
