@@ -53,6 +53,48 @@ try {
     console.warn('pedagogy_guide.md not found; continuing without explicit pedagogy guide.');
 }
 
+const studyLogDir = path.join(__dirname, 'study-logs');
+
+function ensureStudyLogDir() {
+    try {
+        fs.mkdirSync(studyLogDir, { recursive: true });
+        return true;
+    } catch (error) {
+        console.warn('Unable to create study log directory:', error.message);
+        return false;
+    }
+}
+
+function appendJsonLine(fileName, payload) {
+    if (!ensureStudyLogDir()) return;
+    const filePath = path.join(studyLogDir, fileName);
+    const record = {
+        logged_at: new Date().toISOString(),
+        ...payload,
+    };
+    fs.appendFile(filePath, JSON.stringify(record) + '\n', (error) => {
+        if (error) {
+            console.error(`Failed to append study log "${fileName}":`, error);
+        }
+    });
+}
+
+function extractStudyContext(body = {}) {
+    const study = body.study || {};
+    return {
+        participant_id: study.participantId || null,
+        session_id: study.sessionId || null,
+        study_condition: study.studyCondition || null,
+        prompt_id: study.promptId || null,
+        essay_version_number: Number.isInteger(study.essayVersionNumber) ? study.essayVersionNumber : null,
+    };
+}
+
+function getWordCount(text = '') {
+    const trimmed = String(text || '').trim();
+    return trimmed ? trimmed.split(/\s+/).length : 0;
+}
+
 // Persona system prompts: Devil's Advocate, no rewriting allowed
 const PERSONAS = {
     reviewer2: {
@@ -86,6 +128,91 @@ In the global JSON output that follows later, you will:
     }
 };
 
+app.post('/study/session', (req, res) => {
+    const {
+        participantId,
+        sessionId,
+        studyCondition = null,
+        promptId = null,
+        consentConfirmed = false,
+        startedAt = null,
+        initialPersona = null,
+        pagePath = null,
+        referrer = null,
+    } = req.body || {};
+
+    if (!sessionId) {
+        return res.status(400).json({ error: 'sessionId is required.' });
+    }
+
+    appendJsonLine('sessions.jsonl', {
+        participant_id: participantId || null,
+        session_id: sessionId,
+        study_condition: studyCondition,
+        prompt_id: promptId,
+        consent_confirmed: Boolean(consentConfirmed),
+        started_at: startedAt,
+        initial_persona: initialPersona,
+        page_path: pagePath,
+        referrer,
+        user_agent: req.get('user-agent') || null,
+    });
+
+    res.json({ ok: true });
+});
+
+app.post('/study/event', (req, res) => {
+    const { eventType, payload = {}, study = {} } = req.body || {};
+
+    if (!eventType) {
+        return res.status(400).json({ error: 'eventType is required.' });
+    }
+
+    appendJsonLine('events.jsonl', {
+        participant_id: study.participantId || null,
+        session_id: study.sessionId || null,
+        study_condition: study.studyCondition || null,
+        prompt_id: study.promptId || null,
+        essay_version_number: Number.isInteger(study.essayVersionNumber) ? study.essayVersionNumber : null,
+        event_type: eventType,
+        payload,
+        user_agent: req.get('user-agent') || null,
+    });
+
+    res.json({ ok: true });
+});
+
+app.post('/study/draft', (req, res) => {
+    const {
+        study = {},
+        source,
+        versionNumber = null,
+        essayText = '',
+        wordCount = null,
+        characterCount = null,
+        currentPersona = null,
+    } = req.body || {};
+
+    if (!study.sessionId) {
+        return res.status(400).json({ error: 'study.sessionId is required.' });
+    }
+
+    appendJsonLine('drafts.jsonl', {
+        participant_id: study.participantId || null,
+        session_id: study.sessionId,
+        study_condition: study.studyCondition || null,
+        prompt_id: study.promptId || null,
+        essay_version_number: Number.isInteger(versionNumber) ? versionNumber : null,
+        source: source || 'unspecified',
+        current_persona: currentPersona,
+        word_count: Number.isFinite(wordCount) ? wordCount : getWordCount(essayText),
+        character_count: Number.isFinite(characterCount) ? characterCount : String(essayText || '').length,
+        essay_text: essayText || '',
+    });
+
+    res.json({ ok: true });
+});
+
 /**
  * Devil's Advocate: structured questioning only, no cure.
  * MVP: return four focused questions:
@@ -97,6 +224,7 @@ In the global JSON output that follows later, you will:
 app.post('/challenge', async (req, res) => {
     try {
         const { essay, persona = 'reviewer2', geminiApiKey } = req.body;
+        const studyContext = extractStudyContext(req.body);
         if (!essay || !essay.trim()) {
             return res.status(400).send({ error: 'Essay text is required.' });
         }
@@ -201,6 +329,23 @@ ${essay.trim()}
                 counterargument_excerpt: parsed.counterargument_excerpt || null,
                 scope_or_implication_excerpt: parsed.scope_or_implication_excerpt || null,
             });
+
+            appendJsonLine('challenges.jsonl', {
+                ...studyContext,
+                persona,
+                essay_text: essay.trim(),
+                essay_word_count: getWordCount(essay),
+                response: {
+                    claim_question: parsed.claim_question,
+                    reasoning_question: parsed.reasoning_question,
+                    counterargument_question: parsed.counterargument_question,
+                    scope_or_implication_question: parsed.scope_or_implication_question,
+                    claim_excerpt: parsed.claim_excerpt || null,
+                    reasoning_excerpt: parsed.reasoning_excerpt || null,
+                    counterargument_excerpt: parsed.counterargument_excerpt || null,
+                    scope_or_implication_excerpt: parsed.scope_or_implication_excerpt || null,
+                },
+            });
         } else {
             // Confused Reader: only two questions (Clarification + Co-Construction)
             if (!parsed.clarification_question || !parsed.co_construction_question) {
@@ -224,6 +369,21 @@ ${essay.trim()}
                 counterargument_excerpt: null,
                 scope_or_implication_excerpt: null,
             });
+
+            appendJsonLine('challenges.jsonl', {
+                ...studyContext,
+                persona,
+                essay_text: essay.trim(),
+                essay_word_count: getWordCount(essay),
+                response: {
+                    clarification_question: parsed.clarification_question,
+                    co_construction_question: parsed.co_construction_question,
+                    clarification_excerpt: parsed.clarification_excerpt || null,
+                    co_construction_excerpt: parsed.co_construction_excerpt || null,
+                    claim_question: parsed.clarification_question,
+                    reasoning_question: parsed.co_construction_question,
+                },
+            });
         }
     } catch (error) {
         console.error('Error in /challenge:', error);
@@ -237,6 +397,7 @@ ${essay.trim()}
 app.post('/unlock', async (req, res) => {
     try {
         const { essay, label, excerpt, question, userDefense, geminiApiKey } = req.body;
+        const studyContext = extractStudyContext(req.body);
         if (!essay || !question || !userDefense || !userDefense.trim()) {
             return res.status(400).send({ error: 'Essay, question, and your reflection are required.' });
         }
@@ -262,6 +423,20 @@ Output a JSON object with:
         const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
         const jsonString = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : text;
         const parsed = JSON.parse(jsonString);
+        appendJsonLine('unlocks.jsonl', {
+            ...studyContext,
+            label: label || null,
+            excerpt: excerpt || null,
+            question,
+            essay_text: essay.trim(),
+            essay_word_count: getWordCount(essay),
+            user_defense: userDefense.trim(),
+            defense_word_count: getWordCount(userDefense),
+            response: {
+                suggestion: parsed.suggestion || text,
+                tip: parsed.tip || '',
+            },
+        });
         res.json({ suggestion: parsed.suggestion || text, tip: parsed.tip || '' });
     } catch (error) {
         console.error('Error in /unlock:', error);

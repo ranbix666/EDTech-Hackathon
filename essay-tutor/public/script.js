@@ -41,9 +41,21 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastFeedbackData = null;
     let lastEssayText = '';
     const THEME_STORAGE_KEY = 'essayMentorTheme';
+    const STUDY_PARTICIPANT_STORAGE_KEY = 'essayMentorStudyParticipantId';
+    const urlParams = new URLSearchParams(window.location.search);
+    const studyConditionFromUrl = urlParams.get('condition') || urlParams.get('studyCondition') || null;
+    const promptIdFromUrl = urlParams.get('promptId') || null;
+    const studyModeEnabled = ['1', 'true', 'yes'].includes((urlParams.get('study') || urlParams.get('studyMode') || '').toLowerCase())
+        || Boolean(urlParams.get('participantId'))
+        || Boolean(studyConditionFromUrl)
+        || Boolean(promptIdFromUrl);
     let totalChallenges = 0;
     let unlockedCount = 0;
     let sessionLog = [];
+    let studyParticipantId = null;
+    let studySessionId = null;
+    let draftVersionNumber = 0;
+    let lastSavedDraftText = '';
 
     // ==========================================================================
     // 3. Quill Editor Setup
@@ -67,6 +79,159 @@ document.addEventListener('DOMContentLoaded', () => {
         const wordCount = text.length > 0 ? text.split(/\s+/).length : 0;
         wordCountBadge.textContent = `${wordCount} words`;
     });
+
+    function sanitizeStudyValue(value) {
+        if (!value) return null;
+        return String(value).trim().replace(/[^\w-]/g, '');
+    }
+
+    function generateClientId(prefix) {
+        return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    function getPlainWordCount(text) {
+        const trimmed = String(text || '').trim();
+        return trimmed ? trimmed.split(/\s+/).length : 0;
+    }
+
+    function getCurrentEssayText() {
+        return quill.getText().trim();
+    }
+
+    function getStudyMetadata(overrides = {}) {
+        return {
+            participantId: studyParticipantId,
+            sessionId: studySessionId,
+            studyCondition: studyConditionFromUrl,
+            promptId: promptIdFromUrl,
+            essayVersionNumber: draftVersionNumber,
+            ...overrides,
+        };
+    }
+
+    async function postStudyJson(url, payload, options = {}) {
+        const { useBeacon = false } = options;
+        const body = JSON.stringify(payload);
+
+        if (useBeacon && navigator.sendBeacon) {
+            try {
+                const blob = new Blob([body], { type: 'application/json' });
+                if (navigator.sendBeacon(url, blob)) {
+                    return true;
+                }
+            } catch (error) {
+                console.warn(`Study logging beacon failed for ${url}:`, error);
+            }
+        }
+
+        try {
+            await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body,
+                keepalive: useBeacon,
+            });
+            return true;
+        } catch (error) {
+            console.warn(`Study logging failed for ${url}:`, error);
+            return false;
+        }
+    }
+
+    function resolveParticipantId() {
+        const participantFromUrl = sanitizeStudyValue(urlParams.get('participantId'));
+        const participantFromStorage = sanitizeStudyValue(localStorage.getItem(STUDY_PARTICIPANT_STORAGE_KEY));
+        const promptedParticipant = participantFromUrl || participantFromStorage
+            ? null
+            : sanitizeStudyValue(window.prompt('Enter your study participant ID:', ''));
+        const participantId = participantFromUrl
+            || participantFromStorage
+            || promptedParticipant
+            || generateClientId('pilot');
+
+        localStorage.setItem(STUDY_PARTICIPANT_STORAGE_KEY, participantId);
+        return participantId;
+    }
+
+    async function logStudyEvent(eventType, payload = {}, options = {}) {
+        if (!studyModeEnabled || !studySessionId) return false;
+        return postStudyJson('/study/event', {
+            study: getStudyMetadata(),
+            eventType,
+            payload,
+        }, options);
+    }
+
+    async function saveDraftSnapshot(source, options = {}) {
+        if (!studyModeEnabled || !studySessionId) return draftVersionNumber || null;
+        const { force = false, useBeacon = false } = options;
+        const essayText = getCurrentEssayText();
+        if (!essayText) return draftVersionNumber || null;
+
+        const hasChanged = essayText !== lastSavedDraftText;
+        if (!force && !hasChanged) {
+            return draftVersionNumber || null;
+        }
+
+        if (hasChanged) {
+            draftVersionNumber += 1;
+            lastSavedDraftText = essayText;
+        }
+
+        const versionNumber = draftVersionNumber;
+        await postStudyJson('/study/draft', {
+            study: getStudyMetadata({ essayVersionNumber: versionNumber }),
+            source,
+            versionNumber,
+            essayText,
+            wordCount: getPlainWordCount(essayText),
+            characterCount: essayText.length,
+            currentPersona,
+        }, { useBeacon });
+
+        return versionNumber;
+    }
+
+    function countFeedbackQuestions(data) {
+        if (!data) return 0;
+
+        if (currentPersona === 'confusedReader') {
+            return [
+                data.clarification_question || data.claim_question,
+                data.coconstruction_question || data.co_construction_question || data.reasoning_question,
+            ].filter(Boolean).length;
+        }
+
+        return [
+            data.claim_question,
+            data.reasoning_question,
+            data.counterargument_question,
+            data.scope_or_implication_question,
+        ].filter(Boolean).length;
+    }
+
+    async function initializeStudySession() {
+        if (!studyModeEnabled) return;
+        studyParticipantId = resolveParticipantId();
+        studySessionId = generateClientId('session');
+
+        await postStudyJson('/study/session', {
+            participantId: studyParticipantId,
+            sessionId: studySessionId,
+            studyCondition: studyConditionFromUrl,
+            promptId: promptIdFromUrl,
+            consentConfirmed: true,
+            startedAt: new Date().toISOString(),
+            initialPersona: currentPersona,
+            pagePath: window.location.pathname,
+            referrer: document.referrer || null,
+        });
+
+        await logStudyEvent('session_started', {
+            initialPersona: currentPersona,
+            feedbackView: useTabsView ? 'tabs' : 'cards',
+        });
+    }
 
     // ==========================================================================
     // 4. Core Functionality & Event Listeners
@@ -124,6 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
             feedbackViewToggle.classList.toggle('switcher-on', isOn);
             feedbackViewToggle.setAttribute('aria-pressed', isOn);
             feedbackViewToggle.setAttribute('aria-label', isOn ? 'View as tabs (on)' : 'View as cards (off)');
+            logStudyEvent('feedback_view_toggled', { feedbackView: isOn ? 'tabs' : 'cards' });
             if (lastFeedbackData && lastEssayText !== undefined) {
                 renderFeedback(lastFeedbackData, lastEssayText);
             }
@@ -133,6 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sampleBtn.addEventListener('click', () => {
         const sampleEssay = `The pervasive influence of social media on teen mental health is a pressing contemporary issue. While these platforms offer avenues for connection, they also present significant risks that cannot be ignored.\n\nThe constant exposure to curated, idealized lives can foster feelings of inadequacy and low self-esteem among adolescents. Studies have shown a correlation between high social media usage and increased rates of anxiety and depression. The pressure to maintain a perfect online persona creates a stressful environment where teens feel they are under constant scrutiny.\n\nFurthermore, cyberbullying has become a rampant problem, extending schoolyard conflicts into the digital realm, where they can persist 24/7. This form of harassment can have devastating and long-lasting psychological effects on its victims, who often feel isolated and helpless.\n\nIn conclusion, while social media is an integral part of modern adolescent life, it is crucial for parents, educators, and policymakers to address its dark side. Fostering digital literacy and promoting a healthier, more balanced relationship with these powerful platforms is essential for protecting the mental well-being of the next generation.`;
         quill.setText(sampleEssay);
+        logStudyEvent('sample_loaded', { sampleId: 'builtin-social-media' });
         showToast('Sample essay loaded.', 'info');
     });
 
@@ -146,6 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateProgressTracker();
         const exportBtn = document.getElementById('export-btn');
         if (exportBtn) exportBtn.style.display = 'none';
+        logStudyEvent('editor_cleared');
         showToast('Editor cleared.', 'info');
     });
 
@@ -161,6 +329,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const reader = new FileReader();
             reader.onload = (e) => {
                 quill.setText(e.target.result);
+                logStudyEvent('file_uploaded', {
+                    fileName: file.name,
+                    fileSizeBytes: file.size,
+                });
                 showToast('File uploaded successfully.', 'success');
             };
             reader.onerror = () => { showToast('Error reading file.', 'error'); };
@@ -175,6 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelector('.persona-card.selected')?.classList.remove('selected');
                 card.classList.add('selected');
                 currentPersona = card.dataset.persona;
+                logStudyEvent('persona_selected', { persona: currentPersona });
             });
         });
         const defaultPersonaCard = document.querySelector(`.persona-card[data-persona="${currentPersona}"]`);
@@ -198,6 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!nextPersona) return;
                 currentPersona = nextPersona;
                 applyPersonaTabState(currentPersona);
+                logStudyEvent('persona_selected', { persona: currentPersona });
             });
         });
     }
@@ -213,6 +387,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const essayVersionNumber = await saveDraftSnapshot('before_challenge');
+        await logStudyEvent('challenge_requested', {
+            persona: currentPersona,
+            essayVersionNumber,
+            wordCount: getPlainWordCount(essayText),
+        });
+
         setLoadingState(true);
         updateFeedbackState('loading');
 
@@ -220,7 +401,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/challenge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ essay: essayText, persona: currentPersona, geminiApiKey: GEMINI_API_KEY }),
+                body: JSON.stringify({
+                    essay: essayText,
+                    persona: currentPersona,
+                    geminiApiKey: GEMINI_API_KEY,
+                    study: studyModeEnabled ? getStudyMetadata({ essayVersionNumber }) : undefined,
+                }),
             });
 
             if (!response.ok) {
@@ -236,11 +422,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
+            await logStudyEvent('challenge_returned', {
+                persona: currentPersona,
+                essayVersionNumber,
+                questionCount: countFeedbackQuestions(data),
+            });
             renderFeedback(data, essayText); // Pass essay text for unlock endpoint
             updateFeedbackState('results');
             // counters removed from header
 
         } catch (error) {
+            await logStudyEvent('challenge_failed', {
+                persona: currentPersona,
+                essayVersionNumber,
+                message: error.message || 'unknown_error',
+            });
             console.error('Error getting feedback:', error);
             showToast(error.message || 'Failed to get feedback from the server.', 'error');
             updateFeedbackState('empty');
@@ -381,6 +577,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 panelsContainer.querySelectorAll('.feedback-tab-panel').forEach((p, j) => {
                     p.setAttribute('aria-hidden', j !== i);
                 });
+                logStudyEvent('feedback_tab_opened', {
+                    title: entries[i][0],
+                    index: i,
+                });
             });
         });
 
@@ -434,13 +634,32 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         container.appendChild(reflectionSection);
 
+        const reflectionInput = reflectionSection.querySelector('.reflection-input');
         const getSuggestionsBtn = reflectionSection.querySelector('.get-suggestions-btn');
+        let hasLoggedReflectionStart = false;
+
+        reflectionInput.addEventListener('focus', () => {
+            if (hasLoggedReflectionStart) return;
+            hasLoggedReflectionStart = true;
+            logStudyEvent('reflection_started', { title, question });
+        });
+
         getSuggestionsBtn.addEventListener('click', async () => {
-            const userDefense = reflectionSection.querySelector('.reflection-input').value;
+            const userDefense = reflectionInput.value;
             if (!userDefense.trim()) {
                 showToast('Please write a reflection before unlocking.', 'error');
                 return;
             }
+
+            const trimmedDefense = userDefense.trim();
+            const currentEssay = getCurrentEssayText() || essayText;
+            const essayVersionNumber = await saveDraftSnapshot('before_unlock');
+            await logStudyEvent('unlock_requested', {
+                title,
+                question,
+                essayVersionNumber,
+                defenseWordCount: getPlainWordCount(trimmedDefense),
+            });
 
             getSuggestionsBtn.classList.add('loading');
             getSuggestionsBtn.disabled = true;
@@ -450,12 +669,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        essay: essayText,
+                        essay: currentEssay,
                         question: question,
                         userDefense: userDefense,
                         label: title,
                         excerpt: excerpt || null,
                         geminiApiKey: GEMINI_API_KEY,
+                        study: studyModeEnabled ? getStudyMetadata({ essayVersionNumber }) : undefined,
                     }),
                 });
 
@@ -469,6 +689,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const suggestionData = await unlockResponse.json();
+                await logStudyEvent('unlock_returned', {
+                    title,
+                    question,
+                    essayVersionNumber,
+                    defenseWordCount: getPlainWordCount(trimmedDefense),
+                    suggestionLength: (suggestionData.suggestion || '').length,
+                });
+                await saveDraftSnapshot('post_unlock');
                 renderReward(suggestionData.suggestion, suggestionData.tip, container);
 
                 sessionLog.push({
@@ -485,9 +713,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (exportBtnEl) exportBtnEl.style.display = 'inline-flex';
 
                 getSuggestionsBtn.remove();
-                reflectionSection.querySelector('.reflection-input').disabled = true;
+                reflectionInput.disabled = true;
 
             } catch (error) {
+                await logStudyEvent('unlock_failed', {
+                    title,
+                    question,
+                    essayVersionNumber,
+                    message: error.message || 'unknown_error',
+                });
                 showToast(error.message, 'error');
                 getSuggestionsBtn.classList.remove('loading');
                 getSuggestionsBtn.disabled = false;
@@ -546,8 +780,17 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/"/g, '&quot;');
     }
 
-    function exportSession() {
+    async function exportSession() {
         if (!sessionLog.length) return;
+
+        await saveDraftSnapshot('final_export', { force: true });
+        await logStudyEvent('session_exported', {
+            unlockedCount,
+            totalChallenges,
+            exportedEntries: sessionLog.length,
+        });
+
+        lastEssayText = getCurrentEssayText() || lastEssayText;
 
         const essaySnippet = lastEssayText.length > 500
             ? lastEssayText.slice(0, 500) + '…'
@@ -742,6 +985,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Initializations ---
     updateFeedbackState('empty');
+    initializeStudySession();
+
+    window.addEventListener('beforeunload', () => {
+        if (!studyModeEnabled) return;
+        saveDraftSnapshot('session_end', { force: true, useBeacon: true });
+        logStudyEvent('session_completed', {
+            unlockedCount,
+            totalChallenges,
+        }, { useBeacon: true });
+    });
 
     // --- Particle Generator ---
     const particlesContainer = document.getElementById('particles');
