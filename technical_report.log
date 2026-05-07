@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.8)  5 APR 2026 15:33
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.8)  6 MAY 2026 22:24
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -827,7 +827,7 @@ Package pdfcol Info: New color stack `tcb@breakable' = 1 on input line 23.
 \tcb@totallowerbox=\box83
 )
 Package hyperref Info: Option `colorlinks' set `true' on input line 52.
-LaTeX Font Info:    Trying to load font information for T1+lmr on input line 82
+LaTeX Font Info:    Trying to load font information for T1+lmr on input line 81
 .
 
 (C:\Users\biran\AppData\Local\Programs\MiKTeX\tex/latex/lm\t1lmr.fd
@@ -840,24 +840,24 @@ File: l3backend-pdftex.def 2025-10-09 L3 backend support: PDF output (pdfTeX)
 ) (technical_report.aux)
 \openout1 = `technical_report.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 82.
-LaTeX Font Info:    ... okay on input line 82.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 82.
-LaTeX Font Info:    ... okay on input line 82.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 82.
-LaTeX Font Info:    ... okay on input line 82.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 82.
-LaTeX Font Info:    ... okay on input line 82.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 82.
-LaTeX Font Info:    ... okay on input line 82.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 82.
-LaTeX Font Info:    ... okay on input line 82.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 82.
-LaTeX Font Info:    ... okay on input line 82.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 82.
-LaTeX Font Info:    ... okay on input line 82.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 82.
-LaTeX Font Info:    ... okay on input line 82.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
@@ -919,7 +919,7 @@ Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
 fg
 File: epstopdf-sys.cfg 2021/03/18 v2.0 Configuration of epstopdf for MiKTeX
 ))
-Package hyperref Info: Link coloring ON on input line 82.
+Package hyperref Info: Link coloring ON on input line 81.
  (technical_report.out) (technical_report.out)
 \@outlinefile=\write5
 \openout5 = `technical_report.out'.
@@ -929,69 +929,71 @@ Package caption Info: Begin \AtBeginDocument code.
 Package caption Info: float package is loaded.
 Package caption Info: End \AtBeginDocument code.
 LaTeX Font Info:    Trying to load font information for OT1+lmr on input line 8
-4.
+3.
 
 (C:\Users\biran\AppData\Local\Programs\MiKTeX\tex/latex/lm\ot1lmr.fd
 File: ot1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OML+lmm on input line 8
-4.
+3.
 
 (C:\Users\biran\AppData\Local\Programs\MiKTeX\tex/latex/lm\omllmm.fd
 File: omllmm.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OMS+lmsy on input line 
-84.
+83.
 
 (C:\Users\biran\AppData\Local\Programs\MiKTeX\tex/latex/lm\omslmsy.fd
 File: omslmsy.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OMX+lmex on input line 
-84.
+83.
 
 (C:\Users\biran\AppData\Local\Programs\MiKTeX\tex/latex/lm\omxlmex.fd
 File: omxlmex.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <12> on input line 84.
+(Font)              <12> on input line 83.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8> on input line 84.
+(Font)              <8> on input line 83.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <6> on input line 84.
-LaTeX Font Info:    Trying to load font information for U+msa on input line 84.
+(Font)              <6> on input line 83.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 83.
 
 
 (C:\Users\biran\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 84.
+LaTeX Font Info:    Trying to load font information for U+msb on input line 83.
 
 
 (C:\Users\biran\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10> on input line 84.
+(Font)              <10> on input line 83.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <7> on input line 84.
+(Font)              <7> on input line 83.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 84.
-LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 8
-4.
+(Font)              <5> on input line 83.
 
-(C:\Users\biran\AppData\Local\Programs\MiKTeX\tex/latex/lm\t1lmtt.fd
-File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-) [1
+[1
 
 {C:/Users/biran/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Users/bira
 n/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-ec.enc}{C:/Users/biran/Ap
 pData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-rm.enc}]
+LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 1
+11.
+
+(C:\Users\biran\AppData\Local\Programs\MiKTeX\tex/latex/lm\t1lmtt.fd
+File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
+)
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10.95> on input line 112.
+(Font)              <10.95> on input line 111.
  [2{C:/Users/biran/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.e
 nc}]
 LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 1
-55.
+54.
 
 (C:\Users\biran\AppData\Local\Programs\MiKTeX\tex/latex/lm\ts1lmr.fd
 File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
@@ -999,54 +1001,54 @@ File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 [4{C:/Users/biran/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-ts1.enc}]
 [5] [6]
 Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on i
-nput line 327.
+nput line 326.
  [7]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10.95> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 370.
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 369.
  [8]
-Overfull \hbox (8.31638pt too wide) in paragraph at lines 436--437
+Overfull \hbox (8.31638pt too wide) in paragraph at lines 435--436
 \T1/lmr/m/sc/10.95 Prober.ai \T1/lmr/m/n/10.95 was de-vel-oped over a one-month
  com-pe-ti-tion pe-riod dur-ing the NY EdTech Hackathon
  []
 
 [9] [10]
-Overfull \hbox (4.58807pt too wide) in paragraph at lines 477--478
+Overfull \hbox (4.58807pt too wide) in paragraph at lines 476--477
 \T1/lmr/m/n/10.95 tion, ar-gu-men-ta-tive writ-ing im-prove-ment, and learn-ing
  out-comes re-main the-o-ret-i-cal, grounded
  []
 
 [11] [12] [13]
-Underfull \hbox (badness 10000) in paragraph at lines 622--630
+Underfull \hbox (badness 10000) in paragraph at lines 619--627
 \T1/lmtt/m/n/10 Your Perspective: Expert. You assume the author should be rigor
 ous. You are
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 622--630
+Underfull \hbox (badness 10000) in paragraph at lines 619--627
 \T1/lmtt/m/n/10 1. Ignore prose, grammar, or flow. Focus strictly on the struct
 ural integrity
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 622--630
+Underfull \hbox (badness 10000) in paragraph at lines 619--627
 \T1/lmtt/m/n/10 2. Identify the single most significant logical ``black hole'' 
 or theoretical
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 622--630
+Underfull \hbox (badness 10000) in paragraph at lines 619--627
 \T1/lmtt/m/n/10 3. Pose one sharp, challenging question that forces the author 
 to defend their
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 622--630
+Underfull \hbox (badness 10000) in paragraph at lines 619--627
 \T1/lmtt/m/n/10 Tone: Cold, clinical, and intellectually demanding. Do NOT sugg
 est fixes. Do
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 622--630
+Underfull \hbox (badness 10000) in paragraph at lines 619--627
 \T1/lmtt/m/n/10 4. Ask one claim, one reasoning, one counterargument question, 
 and one scope or
  []
@@ -1062,11 +1064,11 @@ Package rerunfilecheck Info: File `technical_report.out' has not changed.
 Here is how much of TeX's memory you used:
  28479 strings out of 467870
  535169 string characters out of 5418356
- 972425 words of memory out of 5000000
+ 972394 words of memory out of 5000000
  56803 multiletter control sequences out of 15000+600000
  705861 words of font info for 98 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 98i,10n,108p,1510b,1214s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 98i,10n,108p,1510b,1215s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/biran/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx10.pf
 b><C:/Users/biran/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx12.pf
 b><C:/Users/biran/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmcsc10.p
@@ -1081,7 +1083,7 @@ sers/biran/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmtk10.pfb><C:/U
 sers/biran/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmtt10.pfb><C:/U
 sers/biran/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/symbols/ms
 am10.pfb>
-Output written on technical_report.pdf (14 pages, 393821 bytes).
+Output written on technical_report.pdf (14 pages, 399947 bytes).
 PDF statistics:
  418 PDF objects out of 1000 (max. 8388607)
  109 named destinations out of 1000 (max. 500000)
