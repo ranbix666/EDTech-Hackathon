@@ -1,0 +1,10 @@
+# LaTeX build artifacts (regenerated whenever technical_report.tex is compiled)
+docs/technical-report/*.aux
+docs/technical-report/*.bbl
+docs/technical-report/*.blg
+docs/technical-report/*.fdb_latexmk
+docs/technical-report/*.fls
+docs/technical-report/*.log
+docs/technical-report/*.out
+docs/technical-report/*.toc
+docs/technical-report/*.synctex.gz
