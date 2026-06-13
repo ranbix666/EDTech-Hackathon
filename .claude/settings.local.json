@@ -5,7 +5,10 @@
       "Bash(pdflatex -interaction=nonstopmode technical_report.tex)",
       "Bash(grep -n \"\\\\\\\\\\\\\\\\begin{figure}\\\\|\\\\\\\\\\\\\\\\end{figure}\\\\|\\\\\\\\\\\\\\\\begin{lstlisting}\\\\|\\\\\\\\\\\\\\\\end{lstlisting}\\\\|\\\\\\\\\\\\\\\\begin{algorithm}\\\\|\\\\\\\\\\\\\\\\end{algorithm}\" technical_report.tex)",
       "Bash(grep -n \"language=json\\\\|breakable\\\\|\\\\\\\\\\\\\\\\tcbuselibrary\" technical_report.tex)",
-      "Bash(bibtex technical_report)"
+      "Bash(bibtex technical_report)",
+      "Bash(touch docs/technical-report/technical_report.aux docs/technical-report/technical_report.log)",
+      "Bash(git check-ignore *)",
+      "Bash(rm -f docs/technical-report/technical_report.aux docs/technical-report/technical_report.log)"
     ]
   }
 }
