@@ -158,6 +158,19 @@ p {
     background: #9ca3af;
 }
 
+/* Respect users who prefer reduced motion: cut animations and transitions. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+    #particles {
+        display: none;
+    }
+}
+
 /* ==========================================================================
    3. Keyframe Animations
    ========================================================================== */
@@ -1122,6 +1135,44 @@ p {
     font-style: italic;
 }
 
+/* Suggestion content: preserve formatting from the safe Markdown renderer */
+.suggestion-card .suggestion-text p {
+    margin: 0 0 0.75rem;
+    color: var(--text-primary);
+}
+.suggestion-card .suggestion-text p:last-child {
+    margin-bottom: 0;
+}
+.suggestion-card .suggestion-text code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: rgba(0, 0, 0, 0.06);
+    padding: 0.1em 0.35em;
+    border-radius: var(--radius-sm);
+}
+
+/* Close-the-loop actions under an unlocked suggestion */
+.suggestion-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+.suggestion-actions .button {
+    padding: 0.4rem 0.9rem;
+    font-size: 0.82rem;
+    width: auto;
+    margin-top: 0;
+}
+
+/* Empty-state lead-in */
+.empty-state-lead {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin: 0 0 1rem;
+    line-height: 1.5;
+}
+
 /* ==========================================================================
    11. Toast Notifications
    ========================================================================== */
@@ -1168,9 +1219,25 @@ p {
 @media (max-width: 1100px) {
     .main-container {
         flex-direction: column;
+        /* Stop forcing both panels into a single viewport height — let the
+           page grow and scroll so the editor stays usable on small screens. */
+        height: auto;
+        min-height: calc(100vh - 60px);
     }
-    .sidebar, .feedback-panel-wrapper {
+    .sidebar,
+    .editor-panel-wrapper,
+    .feedback-panel-wrapper {
         width: 100%;
+    }
+    .editor-panel-wrapper,
+    .feedback-panel-wrapper {
+        flex: 1 1 auto;
+    }
+    .editor-panel-wrapper {
+        min-height: 60vh;
+    }
+    .feedback-panel-wrapper {
+        min-height: 50vh;
     }
     .topnav-center {
         display: none;
@@ -1823,6 +1890,66 @@ body.study-setup-open {
 
 .has-demo-banner .main-container {
     padding-top: calc(60px + 36px + 1.5rem);
+}
+
+/* First-run onboarding banner (sits below the fixed topnav) */
+.onboarding-banner {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    z-index: 99;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 0.6rem 1.25rem;
+    font-size: 0.875rem;
+    color: var(--text-accent);
+    background: var(--color-primary-light);
+    border-bottom: 1px solid var(--color-primary);
+    animation: slideDown 0.5s var(--ease) both;
+}
+.onboarding-banner-text {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    text-align: center;
+}
+.onboarding-banner-text i {
+    color: var(--color-primary);
+}
+.onboarding-dismiss {
+    flex-shrink: 0;
+    background: var(--color-primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-full);
+    padding: 0.35rem 0.9rem;
+    font-family: var(--font-primary);
+    font-weight: 600;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: filter var(--transition-fast);
+}
+.onboarding-dismiss:hover {
+    filter: brightness(1.1);
+}
+
+/* Push page content down by the banner's measured height (set in JS) */
+body.has-onboarding-banner .main-container {
+    padding-top: calc(60px + var(--onboarding-banner-h, 48px) + 1.5rem);
+}
+
+@media (max-width: 600px) {
+    .onboarding-banner {
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.6rem 1rem;
+        font-size: 0.8rem;
+    }
 }
 
 .demo-mode-badge {

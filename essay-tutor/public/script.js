@@ -593,22 +593,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const personaTabs = document.querySelectorAll('.persona-tab');
     if (personaTabs.length) {
+        const personaTabArr = Array.from(personaTabs);
         const applyPersonaTabState = (persona) => {
-            personaTabs.forEach(tab => {
+            personaTabArr.forEach(tab => {
                 const isSelected = tab.dataset.persona === persona;
                 tab.setAttribute('aria-selected', String(isSelected));
+                tab.tabIndex = isSelected ? 0 : -1; // roving tabindex for keyboard users
             });
         };
 
         applyPersonaTabState(currentPersona);
 
-        personaTabs.forEach(tab => {
+        personaTabArr.forEach((tab, i) => {
             tab.addEventListener('click', () => {
                 const nextPersona = tab.dataset.persona;
                 if (!nextPersona) return;
                 currentPersona = nextPersona;
                 applyPersonaTabState(currentPersona);
                 logStudyEvent('persona_selected', { persona: currentPersona });
+            });
+            tab.addEventListener('keydown', (e) => {
+                const last = personaTabArr.length - 1;
+                let next = null;
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = i === last ? 0 : i + 1;
+                else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = i === 0 ? last : i - 1;
+                else if (e.key === 'Home') next = 0;
+                else if (e.key === 'End') next = last;
+                if (next === null) return;
+                e.preventDefault();
+                const target = personaTabArr[next];
+                target.focus();
+                target.click();
             });
         });
     }
@@ -816,19 +831,33 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        tabList.querySelectorAll('.feedback-tab-btn').forEach((btn, i) => {
-            btn.addEventListener('click', () => {
-                tabList.querySelectorAll('.feedback-tab-btn').forEach((b, j) => {
-                    b.setAttribute('aria-selected', j === i);
-                });
-                panelsContainer.querySelectorAll('.feedback-tab-panel').forEach((p, j) => {
-                    p.setAttribute('aria-hidden', j !== i);
-                });
-                logStudyEvent('feedback_tab_opened', {
-                    title: entries[i][0],
-                    index: i,
-                    trigger: 'click',
-                });
+        const tabButtons = Array.from(tabList.querySelectorAll('.feedback-tab-btn'));
+        const panels = Array.from(panelsContainer.querySelectorAll('.feedback-tab-panel'));
+
+        const activateTab = (i, trigger) => {
+            tabButtons.forEach((b, j) => {
+                const selected = j === i;
+                b.setAttribute('aria-selected', selected);
+                b.tabIndex = selected ? 0 : -1; // roving tabindex for keyboard users
+            });
+            panels.forEach((p, j) => p.setAttribute('aria-hidden', j !== i));
+            logStudyEvent('feedback_tab_opened', { title: entries[i][0], index: i, trigger });
+        };
+
+        tabButtons.forEach((btn, i) => {
+            btn.tabIndex = i === 0 ? 0 : -1;
+            btn.addEventListener('click', () => activateTab(i, 'click'));
+            btn.addEventListener('keydown', (e) => {
+                const last = tabButtons.length - 1;
+                let next = null;
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = i === last ? 0 : i + 1;
+                else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = i === 0 ? last : i - 1;
+                else if (e.key === 'Home') next = 0;
+                else if (e.key === 'End') next = last;
+                if (next === null) return;
+                e.preventDefault();
+                tabButtons[next].focus();
+                activateTab(next, 'keyboard');
             });
         });
 
@@ -841,10 +870,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const { excerpt = null } = options;
         const card = document.createElement('div');
         card.className = 'challenge-card';
-        card.innerHTML = `
-            <div class="challenge-card-header">${title}</div>
-            <div class="challenge-card-body">${content}</div>
-        `;
+        // Build with textContent so model-generated questions can never inject HTML.
+        const header = document.createElement('div');
+        header.className = 'challenge-card-header';
+        header.textContent = title;
+        const body = document.createElement('div');
+        body.className = 'challenge-card-body';
+        body.textContent = content;
+        card.append(header, body);
 
         if (excerpt && typeof excerpt === 'string' && excerpt.trim().length > 0) {
             card.dataset.excerpt = excerpt;
@@ -1036,16 +1069,49 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderReward(suggestion, tip, container) {
         const rewardBlock = document.createElement('div');
         rewardBlock.className = 'reward-block';
+
+        const tipHtml = tip && tip.trim()
+            ? `<blockquote class="tip-blockquote"><strong>Pro Tip:</strong> ${escapeHtml(tip)}</blockquote>`
+            : '';
+
         rewardBlock.innerHTML = `
             <h4>Defense Successful!</h4>
             <div class="suggestion-card">
                 <h5>Here's a specific suggestion:</h5>
-                <p>${suggestion}</p>
+                <div class="suggestion-text"><p>${renderMarkdownSafe(suggestion)}</p></div>
+                <div class="suggestion-actions">
+                    <button type="button" class="button ghost suggestion-copy-btn">
+                        <i class="fa-solid fa-copy"></i> Copy
+                    </button>
+                    <button type="button" class="button secondary suggestion-insert-btn">
+                        <i class="fa-solid fa-arrow-left-long"></i> Insert into draft
+                    </button>
+                </div>
             </div>
-            <blockquote class="tip-blockquote">
-                <strong>Pro Tip:</strong> ${tip}
-            </blockquote>
+            ${tipHtml}
         `;
+
+        rewardBlock.querySelector('.suggestion-copy-btn').addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(suggestion);
+                showToast('Suggestion copied to clipboard.', 'success');
+                logStudyEvent('suggestion_copied', { suggestionLength: suggestion.length });
+            } catch {
+                showToast('Could not copy automatically. Please select and copy the text.', 'error');
+            }
+        });
+
+        rewardBlock.querySelector('.suggestion-insert-btn').addEventListener('click', () => {
+            // Append the suggestion to the end of the draft so the student can
+            // weave it in — Prober proposes, the writer still does the editing.
+            const insertionPoint = Math.max(quill.getLength() - 1, 0);
+            quill.insertText(insertionPoint, `\n\n${suggestion}\n`, 'user');
+            quill.setSelection(insertionPoint + 2, 0);
+            quill.focus();
+            showToast('Suggestion added to the end of your draft.', 'success');
+            logStudyEvent('suggestion_inserted', { suggestionLength: suggestion.length });
+        });
+
         container.appendChild(rewardBlock);
         showToast('Suggestion unlocked!', 'success');
     }
@@ -1088,6 +1154,19 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    // Render a *limited* subset of Markdown as safe HTML. The input is escaped
+    // first, so model output can never inject markup — only the tags we add
+    // back below are ever interpreted as HTML.
+    function renderMarkdownSafe(str) {
+        return escapeHtml(str)
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
+            .replace(/^(\s*)(Original|Revised)\s*:/gim, '$1<strong>$2:</strong>')
+            .replace(/\n{2,}/g, '</p><p>')
+            .replace(/\n/g, '<br>');
     }
 
     async function exportSession() {
@@ -1235,7 +1314,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="toast-icon"><i class="fa-solid ${icons[type]}"></i></div>
             <div class="toast-body">
                 <h5>${type.charAt(0).toUpperCase() + type.slice(1)}</h5>
-                <p>${message}</p>
+                <p>${escapeHtml(message)}</p>
             </div>
         `;
         toastContainer.appendChild(toast);
@@ -1318,25 +1397,66 @@ document.addEventListener('DOMContentLoaded', () => {
         endStudySession('browser_unload', { useBeacon: true });
     });
 
+    // --- First-run Onboarding Banner ---
+    // One-time, dismissible explainer so newcomers understand the gated,
+    // "no rewriting" model before they hit Challenge Me.
+    (function setupOnboarding() {
+        const ONBOARDING_KEY = 'proberOnboardingSeen';
+        if (localStorage.getItem(ONBOARDING_KEY)) return;
+
+        const banner = document.createElement('div');
+        banner.className = 'onboarding-banner';
+        banner.setAttribute('role', 'note');
+        banner.innerHTML = `
+            <span class="onboarding-banner-text">
+                <i class="fa-solid fa-circle-info"></i>
+                <span><strong>Prober won't rewrite your essay.</strong>
+                Write or paste a draft, hit <strong>Challenge&nbsp;Me</strong>, reflect on each question, then unlock a tailored suggestion.</span>
+            </span>
+            <button type="button" class="onboarding-dismiss" aria-label="Dismiss onboarding tip">Got it</button>
+        `;
+        document.body.insertBefore(banner, document.body.firstChild);
+        document.body.classList.add('has-onboarding-banner');
+
+        const setBannerHeight = () => {
+            document.body.style.setProperty('--onboarding-banner-h', `${banner.offsetHeight}px`);
+        };
+        setBannerHeight();
+        window.addEventListener('resize', setBannerHeight);
+
+        banner.querySelector('.onboarding-dismiss').addEventListener('click', () => {
+            localStorage.setItem(ONBOARDING_KEY, '1');
+            window.removeEventListener('resize', setBannerHeight);
+            banner.remove();
+            document.body.classList.remove('has-onboarding-banner');
+            document.body.style.removeProperty('--onboarding-banner-h');
+            logStudyEvent('onboarding_dismissed', {});
+        });
+    })();
+
     // --- Particle Generator ---
+    // Skip the ambient motion entirely for users who prefer reduced motion.
     const particlesContainer = document.getElementById('particles');
-    const numParticles = 15;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    for (let i = 0; i < numParticles; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'particle';
-        
-        const size = Math.random() * 150 + 150; // 150px to 300px
-        const left = Math.random() * 100; // 0% to 100%
-        const duration = Math.random() * 20 + 20; // 20s to 40s
-        const delay = Math.random() * 15; // 0s to 15s
+    if (particlesContainer && !prefersReducedMotion) {
+        const numParticles = 15;
+        for (let i = 0; i < numParticles; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
 
-        particle.style.width = `${size}px`;
-        particle.style.height = `${size}px`;
-        particle.style.left = `${left}%`;
-        particle.style.animationDuration = `${duration}s`;
-        particle.style.animationDelay = `${delay}s`;
+            const size = Math.random() * 150 + 150; // 150px to 300px
+            const left = Math.random() * 100; // 0% to 100%
+            const duration = Math.random() * 20 + 20; // 20s to 40s
+            const delay = Math.random() * 15; // 0s to 15s
 
-        particlesContainer.appendChild(particle);
+            particle.style.width = `${size}px`;
+            particle.style.height = `${size}px`;
+            particle.style.left = `${left}%`;
+            particle.style.animationDuration = `${duration}s`;
+            particle.style.animationDelay = `${delay}s`;
+
+            particlesContainer.appendChild(particle);
+        }
     }
 });

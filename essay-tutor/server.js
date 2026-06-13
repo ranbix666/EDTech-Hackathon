@@ -6,10 +6,15 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
-// Middleware to parse JSON bodies
-app.use(bodyParser.json());
+// Reject oversized payloads early instead of streaming them into memory and
+// forwarding multi-megabyte prompts to the model.
+const MAX_ESSAY_CHARS = 20000;   // ~3,000–4,000 words
+const MAX_DEFENSE_CHARS = 8000;
+
+// Middleware to parse JSON bodies (with a sane size cap)
+app.use(bodyParser.json({ limit: '1mb' }));
 
 // Home (skeleton) + app routes (must be before static)
 app.get('/', (req, res) => {
@@ -94,6 +99,25 @@ function getWordCount(text = '') {
     const trimmed = String(text || '').trim();
     return trimmed ? trimmed.split(/\s+/).length : 0;
 }
+
+// Extract a JSON object from a model response that may be wrapped in a
+// ```json fenced block, surrounded by prose, or returned bare.
+function parseModelJson(text) {
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+    const jsonString = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : text;
+    return JSON.parse(jsonString);
+}
+
+// Map model/SDK errors to an HTTP status: auth/quota problems are the user's
+// API key (401), everything else is a server-side failure (500).
+function isApiKeyError(message = '') {
+    return /api.?key|permission|quota|billing|unauthorized|invalid/i.test(message);
+}
+
+// Lightweight health check for uptime monitors and load balancers.
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', uptime: process.uptime() });
+});
 
 // Persona system prompts: Devil's Advocate, no rewriting allowed
 const PERSONAS = {
@@ -228,6 +252,11 @@ app.post('/challenge', async (req, res) => {
         if (!essay || !essay.trim()) {
             return res.status(400).send({ error: 'Essay text is required.' });
         }
+        if (essay.length > MAX_ESSAY_CHARS) {
+            return res.status(413).send({
+                error: `Essay is too long (${essay.length} characters). Please keep it under ${MAX_ESSAY_CHARS}.`,
+            });
+        }
         let model;
         try { model = getModel(geminiApiKey); } catch (e) {
             return res.status(401).send({ error: e.message });
@@ -302,12 +331,12 @@ ${essay.trim()}
 ---`;
 
         const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = await response.text();
-        const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
-        const jsonString = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : text;
-        const parsed = JSON.parse(jsonString);
+        const text = (await result.response).text();
+        const parsed = parseModelJson(text);
 
+        // Build the API response once, then reuse it for both the client and
+        // the study log so the two can never drift out of sync.
+        let payload;
         if (!isConfusedReader) {
             // Strict 4-question format for Reviewer 2
             if (
@@ -319,7 +348,7 @@ ${essay.trim()}
                 throw new Error('Invalid challenge format from model (reviewer2)');
             }
 
-            res.json({
+            payload = {
                 claim_question: parsed.claim_question,
                 reasoning_question: parsed.reasoning_question,
                 counterargument_question: parsed.counterargument_question,
@@ -328,31 +357,14 @@ ${essay.trim()}
                 reasoning_excerpt: parsed.reasoning_excerpt || null,
                 counterargument_excerpt: parsed.counterargument_excerpt || null,
                 scope_or_implication_excerpt: parsed.scope_or_implication_excerpt || null,
-            });
-
-            appendJsonLine('challenges.jsonl', {
-                ...studyContext,
-                persona,
-                essay_text: essay.trim(),
-                essay_word_count: getWordCount(essay),
-                response: {
-                    claim_question: parsed.claim_question,
-                    reasoning_question: parsed.reasoning_question,
-                    counterargument_question: parsed.counterargument_question,
-                    scope_or_implication_question: parsed.scope_or_implication_question,
-                    claim_excerpt: parsed.claim_excerpt || null,
-                    reasoning_excerpt: parsed.reasoning_excerpt || null,
-                    counterargument_excerpt: parsed.counterargument_excerpt || null,
-                    scope_or_implication_excerpt: parsed.scope_or_implication_excerpt || null,
-                },
-            });
+            };
         } else {
             // Confused Reader: only two questions (Clarification + Co-Construction)
             if (!parsed.clarification_question || !parsed.co_construction_question) {
                 throw new Error('Invalid challenge format from model (confusedReader)');
             }
 
-            res.json({
+            payload = {
                 // Specialized fields (aligned with pedagogy_guide.md and static mode)
                 clarification_question: parsed.clarification_question,
                 coconstruction_question: parsed.co_construction_question,
@@ -368,28 +380,22 @@ ${essay.trim()}
                 reasoning_excerpt: parsed.co_construction_excerpt || null,
                 counterargument_excerpt: null,
                 scope_or_implication_excerpt: null,
-            });
-
-            appendJsonLine('challenges.jsonl', {
-                ...studyContext,
-                persona,
-                essay_text: essay.trim(),
-                essay_word_count: getWordCount(essay),
-                response: {
-                    clarification_question: parsed.clarification_question,
-                    co_construction_question: parsed.co_construction_question,
-                    clarification_excerpt: parsed.clarification_excerpt || null,
-                    co_construction_excerpt: parsed.co_construction_excerpt || null,
-                    claim_question: parsed.clarification_question,
-                    reasoning_question: parsed.co_construction_question,
-                },
-            });
+            };
         }
+
+        res.json(payload);
+
+        appendJsonLine('challenges.jsonl', {
+            ...studyContext,
+            persona,
+            essay_text: essay.trim(),
+            essay_word_count: getWordCount(essay),
+            response: payload,
+        });
     } catch (error) {
         console.error('Error in /challenge:', error);
         const message = error?.message || 'Failed to generate challenge.';
-        const isApiKeyError = /api.?key|permission|quota|billing|unauthorized|invalid/i.test(message);
-        res.status(isApiKeyError ? 401 : 500).send({ error: message });
+        res.status(isApiKeyError(message) ? 401 : 500).send({ error: message });
     }
 });
 
@@ -400,6 +406,9 @@ app.post('/unlock', async (req, res) => {
         const studyContext = extractStudyContext(req.body);
         if (!essay || !question || !userDefense || !userDefense.trim()) {
             return res.status(400).send({ error: 'Essay, question, and your reflection are required.' });
+        }
+        if (essay.length > MAX_ESSAY_CHARS || userDefense.length > MAX_DEFENSE_CHARS) {
+            return res.status(413).send({ error: 'Your essay or reflection is too long. Please shorten it and try again.' });
         }
         let model;
         try { model = getModel(geminiApiKey); } catch (e) {
@@ -420,9 +429,7 @@ Output a JSON object with:
 
         const result = await model.generateContent(prompt);
         const text = (await result.response).text();
-        const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
-        const jsonString = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : text;
-        const parsed = JSON.parse(jsonString);
+        const parsed = parseModelJson(text);
         appendJsonLine('unlocks.jsonl', {
             ...studyContext,
             label: label || null,
@@ -441,8 +448,7 @@ Output a JSON object with:
     } catch (error) {
         console.error('Error in /unlock:', error);
         const message = error?.message || 'Failed to generate suggestion.';
-        const isApiKeyError = /api.?key|permission|quota|billing|unauthorized|invalid/i.test(message);
-        res.status(isApiKeyError ? 401 : 500).send({ error: message });
+        res.status(isApiKeyError(message) ? 401 : 500).send({ error: message });
     }
 });
 
