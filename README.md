@@ -46,6 +46,21 @@ Prober.ai is a web app that:
     - Suggest specific revised sentences/paragraphs.
     - Provide a short writing tip related to that fix.
   - Response shape: `{ suggestion, tip }`.
+  - The unlocked suggestion is rendered as formatted (safe) Markdown with **Copy**
+    and **Insert into draft** actions, so the student can apply the revision in
+    one click — Prober proposes, the writer still does the editing.
+
+- **Safety & robustness**
+  - All AI-generated text is rendered through HTML-escaping / a safe Markdown
+    renderer (no raw `innerHTML` injection).
+  - Request bodies are size-capped, over-long essays/defenses are rejected, and a
+    `GET /health` endpoint is exposed for uptime checks.
+
+- **Accessibility & onboarding**
+  - Tabs are keyboard-navigable (arrow/Home/End) and the UI honors
+    `prefers-reduced-motion`.
+  - A one-time, dismissible banner explains the “reflect-then-unlock” model to
+    first-time users; the layout is responsive down to mobile widths.
 
 - **Modern frontend UI**
   - Rich text editor using **Quill**.
