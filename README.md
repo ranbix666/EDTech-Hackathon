@@ -1,124 +1,174 @@
-## EDTech Hackathon Project – Prober.ai
+# Prober.ai
 
-This repository contains our NY EDTech Hackathon project **Prober.ai**, plus supporting demos. The main app is an argumentative writing tutor that uses Gemini to act as a critical “devil’s advocate” rather than a ghostwriter.
+Prober.ai is a reflection-first AI tutor for argumentative writing. Instead of immediately rewriting a student's draft, it identifies a small number of reasoning gaps, asks targeted questions, and waits for the student to respond before unlocking a focused revision suggestion.
 
-### 1. The Problem
+The project was created for the NY EdTech Hackathon and received second place.
 
-Students often get **editing or rewriting** from AI tools instead of **deep questioning** that helps them strengthen their own reasoning. This encourages dependency and hides the actual thinking work.
+## What makes it different
 
-### 2. The Solution – Prober.ai
+The core learning loop is intentionally gated:
 
-Prober.ai is a web app that:
+1. The student writes or imports a draft.
+2. A selected reviewer persona asks focused, open-ended questions.
+3. The student explains or defends the reasoning in their own words.
+4. Only then does Prober.ai unlock a limited revision suggestion and a transferable writing tip.
 
-- **Interrogates arguments instead of rewriting them**: the AI plays roles like *Reviewer #2* or *Confused Reader* and only responds with targeted questions.
-- **Surfaces one weak link at a time**: it returns four focused questions (claim, reasoning, counterargument, scope/implications) to avoid overload.
-- **Gates suggestions behind reflection**: students must first write a defense/response to a question before any concrete suggestions are “unlocked”.
-- **Feels like a modern writing tool**: Quill-based editor, responsive layout, and a theme toggle (Sapphire Blue ↔ Orange).
+This design preserves productive cognitive effort while still giving the student concrete support at the moment it is useful.
 
-### 3. Key Features
+## Product features
 
-- **Persona-based feedback**
-  - Choose critics like `Reviewer #2` (rigorous academic) or `Confused Reader` (clarity-focused).
-  - Persona is passed through to the backend to shape the system prompt.
+- Two reviewer perspectives:
+  - **Reviewer 2** probes claims, warrants, counterarguments, and scope.
+  - **Confused Reader** identifies missing definitions and unexplained reasoning steps.
+- Structured feedback generated against explicit JSON schemas.
+- Reflection-gated revision suggestions.
+- Exact excerpt verification before in-editor highlighting.
+- Quill 2 rich-text editor with text and Markdown import.
+- Tabs and cards views that preserve entered reflections and unlock progress.
+- Printable session export for students and instructors.
+- No-key demo with pre-loaded feedback and suggestions.
+- Optional, consent-gated study instrumentation and JSONL export.
+- Keyboard-accessible tabs, reduced-motion support, responsive layout, and theme persistence.
 
-- **Devil’s Advocate challenge (`/challenge`)**
-  - Backend endpoint `POST /challenge` takes `{ essay, persona }`.
-  - Uses Gemini (`gemini-3-flash-preview`) with a detailed system prompt plus optional `pedagogy_guide.md`.
-  - Returns a JSON object.
-    - For the `reviewer2` persona, the object contains:
-      - `claim_question`
-      - `reasoning_question`
-      - `counterargument_question`
-      - `scope_or_implication_question`
-      - `claim_excerpt` (optional)
-      - `reasoning_excerpt` (optional)
-      - `counterargument_excerpt` (optional)
-      - `scope_or_implication_excerpt` (optional)
-    - For the `confusedReader` persona, the object contains:
-      - `clarification_question`
-      - `co_construction_question`
-      - `clarification_excerpt` (optional)
-      - `co_construction_excerpt` (optional)
+## Architecture
 
-- **Gated “unlock” suggestions (`/unlock`)**
-  - Frontend collects the student’s written defense before calling `POST /unlock`.
-  - Backend prompts Gemini to:
-    - Suggest specific revised sentences/paragraphs.
-    - Provide a short writing tip related to that fix.
-  - Response shape: `{ suggestion, tip }`.
-  - The unlocked suggestion is rendered as formatted (safe) Markdown with **Copy**
-    and **Insert into draft** actions, so the student can apply the revision in
-    one click — Prober proposes, the writer still does the editing.
+```mermaid
+flowchart LR
+    A["Browser and Quill editor"] --> B["Express API"]
+    B --> C["Gemini structured output"]
+    C --> B
+    B --> A
+```
 
-- **Safety & robustness**
-  - All AI-generated text is rendered through HTML-escaping / a safe Markdown
-    renderer (no raw `innerHTML` injection).
-  - Request bodies are size-capped, over-long essays/defenses are rejected, and a
-    `GET /health` endpoint is exposed for uptime checks.
+The browser submits the draft and selected persona to `POST /challenge`. Express keeps application instructions separate from student text, requests schema-constrained JSON from Gemini, validates every required field, and returns only the normalized response. After the student writes a reflection, `POST /unlock` receives the full draft, challenge context, and reflection, then returns one focused suggestion and one general writing tip.
 
-- **Accessibility & onboarding**
-  - Tabs are keyboard-navigable (arrow/Home/End) and the UI honors
-    `prefers-reduced-motion`.
-  - A one-time, dismissible banner explains the “reflect-then-unlock” model to
-    first-time users; the layout is responsive down to mobile widths.
+The current implementation uses the maintained `@google/genai` SDK. The default model is `gemini-3.7-flash`, and `GEMINI_MODEL` can override it without changing code.
 
-- **Modern frontend UI**
-  - Rich text editor using **Quill**.
-  - Responsive 3-panel layout: persona sidebar, editor, feedback panel.
-  - Session stats (challenge count, defense count).
-  - Toast notifications and small UI touches (button ripple, tips carousel).
-  - **Theme toggle** in the top-right:
-    - Default **Sapphire Blue** theme via CSS variables.
-    - Alternate **Orange** theme via a `theme-orange` body class.
-    - Choice is persisted in `localStorage`.
+## Quick start
 
-### 4. Tech Stack
+Requirements:
 
-- **Frontend**
-  - Vanilla HTML/CSS/JS.
-  - [Quill](https://quilljs.com/) editor (`snow` theme).
-  - Font Awesome icons.
+- Node.js 20 or newer
+- npm
 
-- **Backend**
-  - **Node.js** with **Express**.
-  - **body-parser** for JSON request parsing.
+From the repository root:
 
-- **AI / APIs**
-  - `@google/generative-ai` (Gemini API – `gemini-3-flash-preview`).
-  - System prompts encoded in `essay-tutor/server.js`.
+```bash
+npm install
+npm start
+```
 
-- **Configuration**
-  - Environment variables via **dotenv**:
-    - `GEMINI_API_KEY` (required for Prober.ai backend).
+Open `http://localhost:3000`.
 
-### 5. Running the Project
+You can then choose one of two API-key modes:
 
-From the repo root:
+- **Browser key:** leave `GEMINI_API_KEY` unset and enter a key in the app. By default the key is kept in `sessionStorage` for the current tab. Persistent storage is opt-in.
+- **Server key:** copy the example environment file and set a deployment-level key.
 
-1. **Install dependencies**
+```bash
+cp essay-tutor/.env.example essay-tutor/.env
+```
 
-   ```bash
-   npm install
-   ```
+```dotenv
+GEMINI_API_KEY=your_key_here
+GEMINI_MODEL=gemini-3.7-flash
+```
 
-2. **Set up environment for Prober.ai**
+The landing page and `/demo` are public. `/app` requests a browser key only when the server does not already have one configured.
 
-   In `essay-tutor/.env`:
+## Commands
 
-   ```bash
-   GEMINI_API_KEY=your_api_key_here
-   ```
+All commands can be run from the repository root.
 
-3. **Start the Prober.ai server**
+| Command | Purpose |
+| --- | --- |
+| `npm start` | Start the Express app on port 3000 |
+| `npm run check` | Syntax-check server, browser, and utility JavaScript |
+| `npm test` | Run the Node test suite |
+| `npm run export:study` | Convert local study JSONL logs to CSV |
 
-   ```bash
-   cd essay-tutor
-   node server.js
-   ```
+## Configuration
 
-   Then open `http://localhost:3000` in your browser.
+| Variable | Default | Description |
+| --- | --- | --- |
+| `PORT` | `3000` | Local HTTP port |
+| `GEMINI_API_KEY` | unset | Optional server-side Gemini key |
+| `GEMINI_MODEL` | `gemini-3.7-flash` | Compatible Gemini model ID |
+| `AI_RATE_LIMIT_MAX` | `30` | AI requests allowed per client and window |
+| `AI_RATE_LIMIT_WINDOW_MS` | `60000` | In-memory AI rate-limit window |
+| `STUDY_LOGGING_ENABLED` | development only | Enables research-data endpoints |
+| `STUDY_LOG_DIR` | `study-logs` | Directory for JSONL research logs |
+| `TRUST_PROXY` | `false` | Trust one reverse-proxy hop when explicitly enabled |
 
-### 6. Team Members
+Never commit `.env`, study logs, exported participant data, or API keys.
+
+## API overview
+
+| Route | Method | Purpose |
+| --- | --- | --- |
+| `/health` | `GET` | Liveness, version, and active model |
+| `/api/config` | `GET` | Non-secret client configuration |
+| `/challenge` | `POST` | Generate persona-specific questions |
+| `/unlock` | `POST` | Generate a suggestion after reflection |
+| `/study/session` | `POST` | Start a consent-confirmed study session |
+| `/study/event` | `POST` | Record a study interaction event |
+| `/study/draft` | `POST` | Record a versioned study draft |
+
+Browser-provided API keys are sent in the `X-Gemini-Api-Key` request header. The legacy request-body field remains accepted by the server for compatibility, but new clients should use the header.
+
+## Reliability and safety controls
+
+- Request bodies and essay, reflection, question, and response fields have explicit size limits.
+- Student text is passed as untrusted data, separate from system instructions.
+- Gemini responses are constrained with endpoint-specific JSON schemas and validated again on the server.
+- Model quotations are used for highlighting only when they occur verbatim in the submitted essay.
+- AI output is escaped before the browser renders its limited Markdown subset.
+- API and key-management responses use `Cache-Control: no-store`.
+- Security headers and per-request IDs are added by Express.
+- A lightweight per-process rate limit protects the AI endpoints; production platforms can add a shared gateway-level limiter.
+- Provider errors are mapped to safe, actionable HTTP responses without returning raw stack details.
+
+## Research logging
+
+Study logging is off in production unless `STUDY_LOGGING_ENABLED=true` is set. The interface requires explicit participant-consent confirmation before it starts a study session. When enabled, the app can capture:
+
+- session metadata and assigned condition;
+- editor and reviewer interaction events;
+- versioned draft snapshots;
+- generated challenges;
+- student reflections and unlocked suggestions.
+
+Local logs are written as JSONL under `essay-tutor/study-logs/` unless `STUDY_LOG_DIR` is changed. This filesystem strategy is intended for local or stateful research deployments. Serverless filesystems such as Vercel are not durable research storage; use an approved persistent data store before running a real study there.
+
+## Project layout
+
+| Path | Contents |
+| --- | --- |
+| `.github/workflows/ci.yml` | Clean-install, syntax, and test workflow |
+| `docs/technical-report/` | Hackathon paper, review, presentation, and compiled PDF |
+| `essay-tutor/public/` | Browser UI, auth helper, themes, and demo |
+| `essay-tutor/samples/` | Importable example essays |
+| `essay-tutor/scripts/` | Study-log export utility |
+| `essay-tutor/test/` | Network-independent server tests |
+| `essay-tutor/pedagogy_guide.md` | Prompt guidance for inquiry-only feedback |
+| `essay-tutor/server.js` | Express routes, Gemini integration, and study logging |
+| `essay-tutor/vercel.json` | Serverless packaging and routing |
+| `package.json` | Root workspace commands |
+| `package-lock.json` | Reproducible dependency graph |
+
+`node_modules` is intentionally excluded from version control. `package-lock.json` is the reproducible dependency source for local development and CI.
+
+## Deployment
+
+`essay-tutor/vercel.json` packages the Express handler, frontend assets, sample essays, and pedagogical guide. For a server-key deployment, configure `GEMINI_API_KEY` and `GEMINI_MODEL` in the hosting environment. Keep study logging disabled unless the deployment includes approved, durable storage and the required research governance.
+
+## Technical report
+
+The original hackathon technical report and presentation are in [`docs/technical-report`](docs/technical-report). They document the competition build and may therefore name the model and SDK used at that time. The application code and this README describe the current implementation.
+
+The engineering findings, completed fixes, verification evidence, and remaining limitations for this branch are recorded in [`docs/REPOSITORY_AUDIT.md`](docs/REPOSITORY_AUDIT.md).
+
+## Team
 
 - Shiyao Wei
 - Yuanyiyi Zhou

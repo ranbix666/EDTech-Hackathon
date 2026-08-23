@@ -1,8 +1,16 @@
 {
-  "dependencies": {
-    "@google/generative-ai": "^0.24.1",
-    "body-parser": "^2.2.2",
-    "dotenv": "^17.2.4",
-    "express": "^5.2.1"
+  "name": "prober-ai-monorepo",
+  "private": true,
+  "workspaces": [
+    "essay-tutor"
+  ],
+  "scripts": {
+    "start": "npm --workspace essay-tutor start",
+    "check": "npm --workspace essay-tutor run check",
+    "test": "npm --workspace essay-tutor test",
+    "export:study": "npm --workspace essay-tutor run export:study"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

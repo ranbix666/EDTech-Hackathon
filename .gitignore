@@ -8,3 +8,22 @@ docs/technical-report/*.log
 docs/technical-report/*.out
 docs/technical-report/*.toc
 docs/technical-report/*.synctex.gz
+
+# Dependencies and local configuration
+node_modules/
+**/node_modules/
+.env
+**/.env
+!.env.example
+!**/.env.example
+
+# Local research data and derived exports
+study-logs/
+study-exports/
+**/study-logs/
+**/study-exports/
+
+# Editor and operating-system files
+.DS_Store
+*.swp
+.claude/settings.local.json

@@ -1,28 +1,36 @@
 {
-  "name": "edtech-hackathon",
+  "name": "prober-ai",
   "version": "1.0.0",
-  "description": "This repository is for our project for the NY EDTech Hackathon.",
-  "main": "index.js",
+  "description": "A reflection-gated AI tutor for argumentative writing.",
+  "main": "server.js",
   "directories": {
     "doc": "docs"
   },
   "scripts": {
     "start": "node server.js",
     "export:study": "node scripts/export-study-logs.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "check": "node --check server.js && node --check public/auth.js && node --check public/home.js && node --check public/login.js && node --check public/script.js && node --check public/demo.js && node --check scripts/export-study-logs.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
-    "body-parser": "^1.20.3",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2"
+    "@google/genai": "^2.18.0",
+    "dotenv": "^17.2.4",
+    "express": "^5.2.1"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ranbix666/EDTech-Hackathon.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "edtech",
+    "argumentative-writing",
+    "ai-tutor",
+    "reflection"
+  ],
+  "author": "Shiyao Wei, Yuanyiyi Zhou, and Ran Bi",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/ranbix666/EDTech-Hackathon/issues"

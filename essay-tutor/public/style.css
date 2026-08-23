@@ -785,8 +785,22 @@ p {
 #feedback-results.feedback-cards-view {
     gap: 0;
 }
-#feedback-results.feedback-cards-view .challenge-card:last-child {
-    margin-bottom: 0;
+#feedback-results.feedback-cards-view .feedback-tabs-wrap {
+    height: auto;
+    margin-top: 0;
+}
+#feedback-results.feedback-cards-view .feedback-tab-panels {
+    display: grid;
+    gap: 1rem;
+    overflow: visible;
+    padding-top: 0;
+}
+#feedback-results.feedback-cards-view .feedback-tab-panel {
+    display: block;
+    padding-bottom: 0;
+}
+#feedback-results.feedback-cards-view .feedback-tab-panel + .feedback-tab-panel {
+    padding-top: 0.25rem;
 }
 
 /* Status Indicator */
@@ -871,6 +885,9 @@ p {
     border-bottom: 1px solid var(--border-color);
     margin: 0 -1.25rem 0 -1.25rem;
     padding: 0 1.25rem;
+}
+.feedback-tabs[hidden] {
+    display: none;
 }
 .feedback-tab-btn {
     border: none;
@@ -1622,6 +1639,29 @@ body.theme-unc.home-skeleton {
     font-size: 0.8125rem;
     color: var(--color-error);
     min-height: 1.2em;
+}
+
+.login-remember {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: fit-content;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.login-remember input {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--color-primary);
+}
+
+.login-storage-note {
+    margin: -0.45rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    line-height: 1.45;
 }
 
 .login-submit {

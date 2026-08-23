@@ -1,8 +1,15 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // Gate: require Gemini API key
-    const GEMINI_API_KEY = localStorage.getItem('geminiApiKey');
-    if (!GEMINI_API_KEY) {
-        window.location.replace('/login');
+document.addEventListener('DOMContentLoaded', async () => {
+    const auth = window.ProberAuth;
+    const GEMINI_API_KEY = auth.getApiKey();
+    let serverConfig = null;
+    try {
+        serverConfig = await auth.getServerConfig();
+    } catch {
+        // A browser-provided key can still be used if the config request fails.
+    }
+
+    if (!GEMINI_API_KEY && !serverConfig?.serverApiKeyConfigured) {
+        window.location.replace(auth.buildLoginUrl(auth.getCurrentPath()));
         return;
     }
 
@@ -33,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const studySetupForm = document.getElementById('study-setup-form');
     const studyClearBtn = document.getElementById('study-clear-btn');
     const studyEnabledInput = document.getElementById('study-enabled-input');
+    const studyConsentInput = document.getElementById('study-consent-input');
     const studyParticipantInput = document.getElementById('study-participant-input');
     const studyConditionInput = document.getElementById('study-condition-input');
     const studyPromptInput = document.getElementById('study-prompt-input');
@@ -48,7 +56,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let isLoading = false;
     let currentHighlightRange = null; // { index, length } for editor context highlighting
     let useTabsView = true; // Switcher default ON: show 4 tabs instead of 4 cards
-    let lastFeedbackData = null;
     let lastEssayText = '';
     const THEME_STORAGE_KEY = 'essayMentorTheme';
     const STUDY_CONFIG_STORAGE_KEY = 'essayMentorStudyConfig';
@@ -61,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let sessionLog = [];
     let studyConfig = null;
     let studyModeEnabled = false;
+    let studyConsentConfirmed = sessionStorage.getItem('proberStudyConsentConfirmed') === '1';
     let studyParticipantId = null;
     let studySessionId = null;
     let draftVersionNumber = 0;
@@ -183,12 +191,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            await fetch(url, {
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body,
                 keepalive: useBeacon,
             });
+            if (!response.ok) {
+                let message = `Study logging failed (${response.status}).`;
+                try {
+                    const errorBody = await response.json();
+                    if (errorBody?.error) message = errorBody.error;
+                } catch {}
+                console.warn(message);
+                return false;
+            }
             return true;
         } catch (error) {
             console.warn(`Study logging failed for ${url}:`, error);
@@ -211,6 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
         studyParticipantInput.value = studyConfig.participantId || '';
         studyConditionInput.value = studyConfig.studyCondition || '';
         studyPromptInput.value = studyConfig.promptId || '';
+        studyConsentInput.checked = studyConsentConfirmed;
         updateStudySetupFieldState();
     }
 
@@ -220,6 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
         [studyParticipantInput, studyConditionInput, studyPromptInput].forEach((input) => {
             input.disabled = disabled;
         });
+        studyConsentInput.disabled = disabled;
     }
 
     function updateStudyStatusBadge() {
@@ -284,9 +303,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function initializeStudySession(reason = 'session_started') {
-        if (!studyModeEnabled) {
+        if (!studyModeEnabled || !studyConsentConfirmed) {
             updateStudyStatusBadge();
-            return;
+            return false;
         }
 
         studyParticipantId = sanitizeStudyValue(studyConfig.participantId) || generateClientId('pilot');
@@ -298,17 +317,27 @@ document.addEventListener('DOMContentLoaded', () => {
         lastSavedDraftText = '';
         hasLoggedEssayEditStart = false;
 
-        await postStudyJson('/study/session', {
+        const sessionStarted = await postStudyJson('/study/session', {
             participantId: studyParticipantId,
             sessionId: studySessionId,
             studyCondition: studyConfig.studyCondition || null,
             promptId: studyConfig.promptId || null,
-            consentConfirmed: true,
+            consentConfirmed: studyConsentConfirmed,
             startedAt: new Date().toISOString(),
             initialPersona: currentPersona,
             pagePath: window.location.pathname,
             referrer: document.referrer || null,
         });
+
+        if (!sessionStarted) {
+            studySessionId = null;
+            studyParticipantId = null;
+            studyModeEnabled = false;
+            studyConfig.enabled = false;
+            persistStudyConfig();
+            updateStudyStatusBadge();
+            return false;
+        }
 
         await logStudyEvent('session_started', {
             initialPersona: currentPersona,
@@ -317,6 +346,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         updateStudyStatusBadge();
+        return true;
     }
 
     async function saveStudySetup(event) {
@@ -329,6 +359,16 @@ document.addEventListener('DOMContentLoaded', () => {
             promptId: sanitizeStudyValue(studyPromptInput.value) || '',
         };
 
+        if (nextConfig.enabled && !serverConfig?.studyLoggingEnabled) {
+            showToast('Study logging is disabled on this deployment.', 'error');
+            return;
+        }
+        if (nextConfig.enabled && !studyConsentInput.checked) {
+            showToast('Confirm participant consent before enabling study logging.', 'error');
+            studyConsentInput.focus();
+            return;
+        }
+
         const wasEnabled = studyModeEnabled;
         const previousParticipant = studyConfig?.participantId || null;
         const previousCondition = studyConfig?.studyCondition || null;
@@ -339,12 +379,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         studyConfig = nextConfig;
-        studyModeEnabled = nextConfig.enabled;
+        studyConsentConfirmed = nextConfig.enabled && studyConsentInput.checked;
+        studyModeEnabled = nextConfig.enabled && studyConsentConfirmed;
+        if (studyConsentConfirmed) {
+            sessionStorage.setItem('proberStudyConsentConfirmed', '1');
+        } else {
+            sessionStorage.removeItem('proberStudyConsentConfirmed');
+        }
         persistStudyConfig();
 
         if (studyModeEnabled) {
-            await initializeStudySession('study_setup_saved');
-            showToast('Study setup saved. A fresh study session is now active.', 'success');
+            const sessionStarted = await initializeStudySession('study_setup_saved');
+            showToast(
+                sessionStarted
+                    ? 'Study setup saved. A fresh study session is now active.'
+                    : 'Study logging could not be started.',
+                sessionStarted ? 'success' : 'error',
+            );
         } else {
             updateStudyStatusBadge();
             showToast('Study logging disabled for this browser.', 'info');
@@ -429,7 +480,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     studyConfig = buildInitialStudyConfig();
-    studyModeEnabled = Boolean(studyConfig.enabled);
+    studyModeEnabled = Boolean(
+        studyConfig.enabled
+        && studyConsentConfirmed
+        && serverConfig?.studyLoggingEnabled,
+    );
+    if (!serverConfig?.studyLoggingEnabled && studySetupBtn) {
+        studySetupBtn.hidden = true;
+    }
 
     // ==========================================================================
     // 4. Core Functionality & Event Listeners
@@ -464,6 +522,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (studyClearBtn) {
         studyClearBtn.addEventListener('click', () => {
             studyEnabledInput.checked = false;
+            studyConsentInput.checked = false;
             studyParticipantInput.value = '';
             studyConditionInput.value = '';
             studyPromptInput.value = '';
@@ -473,7 +532,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (changeKeyBtn) {
         changeKeyBtn.addEventListener('click', () => {
-            localStorage.removeItem('geminiApiKey');
+            auth.clearApiKey();
             window.location.href = '/login';
         });
     }
@@ -526,9 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
             feedbackViewToggle.setAttribute('aria-pressed', isOn);
             feedbackViewToggle.setAttribute('aria-label', isOn ? 'View as tabs (on)' : 'View as cards (off)');
             logStudyEvent('feedback_view_toggled', { feedbackView: isOn ? 'tabs' : 'cards' });
-            if (lastFeedbackData && lastEssayText !== undefined) {
-                renderFeedback(lastFeedbackData, lastEssayText);
-            }
+            applyFeedbackViewMode();
         });
     }
 
@@ -563,16 +620,31 @@ document.addEventListener('DOMContentLoaded', () => {
     fileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (file) {
+            const extension = file.name.split('.').pop()?.toLowerCase();
+            if (!['txt', 'md'].includes(extension)) {
+                showToast('Upload a plain-text .txt or Markdown .md file.', 'error');
+                fileInput.value = '';
+                return;
+            }
+            if (file.size > 1024 * 1024) {
+                showToast('The uploaded file must be smaller than 1 MB.', 'error');
+                fileInput.value = '';
+                return;
+            }
             const reader = new FileReader();
             reader.onload = (e) => {
-                quill.setText(e.target.result);
+                quill.setText(String(e.target.result || ''));
                 logStudyEvent('file_uploaded', {
                     fileName: file.name,
                     fileSizeBytes: file.size,
                 });
                 showToast('File uploaded successfully.', 'success');
+                fileInput.value = '';
             };
-            reader.onerror = () => { showToast('Error reading file.', 'error'); };
+            reader.onerror = () => {
+                showToast('Error reading file.', 'error');
+                fileInput.value = '';
+            };
             reader.readAsText(file);
         }
     });
@@ -634,7 +706,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleChallenge() {
         if (isLoading) return;
         const essayText = quill.getText().trim();
-        if (essayText.length < 20) {
+        if (getPlainWordCount(essayText) < 20) {
             showToast('Please write at least 20 words to get a challenge.', 'error');
             return;
         }
@@ -652,11 +724,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch('/challenge', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: auth.buildApiHeaders(GEMINI_API_KEY),
                 body: JSON.stringify({
                     essay: essayText,
                     persona: currentPersona,
-                    geminiApiKey: GEMINI_API_KEY,
                     study: studyModeEnabled ? getStudyMetadata({ essayVersionNumber }) : undefined,
                 }),
             });
@@ -667,9 +738,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const errBody = await response.json();
                     if (errBody?.error) errorMsg = errBody.error;
                 } catch {}
-                if (response.status === 401) {
-                    errorMsg = 'API key rejected. Please check your Gemini API key and try again.';
-                }
                 throw new Error(errorMsg);
             }
 
@@ -725,8 +793,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function applyFeedbackViewMode() {
+        const wrap = feedbackResults.querySelector('.feedback-tabs-wrap');
+        if (!wrap) return;
+
+        const tabList = wrap.querySelector('.feedback-tabs');
+        const tabButtons = Array.from(wrap.querySelectorAll('.feedback-tab-btn'));
+        const panels = Array.from(wrap.querySelectorAll('.feedback-tab-panel'));
+        const storedIndex = Number.parseInt(wrap.dataset.activeTab || '0', 10);
+        const activeIndex = Number.isInteger(storedIndex) && storedIndex >= 0 && storedIndex < panels.length
+            ? storedIndex
+            : 0;
+
+        feedbackResults.classList.toggle('feedback-cards-view', !useTabsView);
+        if (tabList) tabList.hidden = !useTabsView;
+        tabButtons.forEach((button, index) => {
+            const selected = index === activeIndex;
+            button.setAttribute('aria-selected', String(selected));
+            button.tabIndex = selected ? 0 : -1;
+        });
+        panels.forEach((panel, index) => {
+            panel.setAttribute('aria-hidden', String(useTabsView && index !== activeIndex));
+        });
+    }
+
     function renderFeedback(data, essayText) {
-        lastFeedbackData = data;
         lastEssayText = essayText;
         feedbackResults.innerHTML = '';
         sessionLog = [];
@@ -774,22 +865,16 @@ document.addEventListener('DOMContentLoaded', () => {
         hasLoggedAllUnlocked = false;
         updateProgressTracker();
 
-        if (useTabsView && entries.length > 0) {
-            feedbackResults.classList.remove('feedback-cards-view');
+        if (entries.length > 0) {
             renderFeedbackAsTabs(entries, essayText);
-        } else {
-            /* Cards view: only the 4 cards, no "How would you address this?" */
-            feedbackResults.classList.add('feedback-cards-view');
-            entries.forEach(([title, payload]) => {
-                const { question, excerpt } = payload;
-                feedbackResults.appendChild(createChallengeCard(title, question, { excerpt }));
-            });
+            applyFeedbackViewMode();
         }
     }
 
     function renderFeedbackAsTabs(entries, essayText) {
         const wrap = document.createElement('div');
         wrap.className = 'feedback-tabs-wrap';
+        wrap.dataset.activeTab = '0';
 
         const tabList = document.createElement('div');
         tabList.className = 'feedback-tabs';
@@ -832,15 +917,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const tabButtons = Array.from(tabList.querySelectorAll('.feedback-tab-btn'));
-        const panels = Array.from(panelsContainer.querySelectorAll('.feedback-tab-panel'));
-
         const activateTab = (i, trigger) => {
-            tabButtons.forEach((b, j) => {
-                const selected = j === i;
-                b.setAttribute('aria-selected', selected);
-                b.tabIndex = selected ? 0 : -1; // roving tabindex for keyboard users
-            });
-            panels.forEach((p, j) => p.setAttribute('aria-hidden', j !== i));
+            wrap.dataset.activeTab = String(i);
+            applyFeedbackViewMode();
             logStudyEvent('feedback_tab_opened', { title: entries[i][0], index: i, trigger });
         };
 
@@ -1002,14 +1081,13 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const unlockResponse = await fetch('/unlock', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: auth.buildApiHeaders(GEMINI_API_KEY),
                     body: JSON.stringify({
                         essay: currentEssay,
                         question: question,
                         userDefense: userDefense,
                         label: title,
                         excerpt: excerpt || null,
-                        geminiApiKey: GEMINI_API_KEY,
                         study: studyModeEnabled ? getStudyMetadata({ essayVersionNumber }) : undefined,
                     }),
                 });
@@ -1377,6 +1455,9 @@ document.addEventListener('DOMContentLoaded', () => {
     hydrateStudySetupForm();
     updateStudyStatusBadge();
     initializeStudySession();
+    if (studyConfig.enabled && serverConfig?.studyLoggingEnabled && !studyConsentConfirmed) {
+        openStudySetupModal();
+    }
 
     window.setInterval(() => {
         if (!studyModeEnabled || document.hidden) return;

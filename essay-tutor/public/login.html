@@ -25,7 +25,7 @@
       <div class="login-header">
         <h1 class="login-title">👋 Welcome to Prober.ai!</h1>
         <p class="login-subtitle">
-          To get started, enter your <strong>Google Gemini API key</strong>. It stays in your browser and is sent directly to the AI — never stored on our servers.
+          To get started, enter your <strong>Google Gemini API key</strong>. It is sent to this server only when you request feedback and is never written to study logs.
         </p>
       </div>
 
@@ -51,6 +51,12 @@
 
         <p class="login-error" id="login-error" aria-live="polite"></p>
 
+        <label class="login-remember" for="remember-key-input">
+          <input type="checkbox" id="remember-key-input" />
+          <span>Remember this key on this device</span>
+        </label>
+        <p class="login-storage-note">Leave this off to keep the key only for the current browser tab.</p>
+
         <button type="button" class="login-submit button" id="login-btn">
           <span class="btn-text">Enter</span>
           <i class="fa-solid fa-arrow-right"></i>
@@ -61,9 +67,8 @@
         <i class="fa-solid fa-circle-info"></i>
         Don't have a key?
         <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">
-          Get one free at Google AI Studio
+          Create one in Google AI Studio
         </a>
-        — no credit card required.
       </div>
 
       <div class="login-demo-link">
@@ -73,81 +78,7 @@
     </div>
   </div>
 
-  <script>
-    // Particle background
-    const particlesContainer = document.getElementById('particles');
-    for (let i = 0; i < 10; i++) {
-      const p = document.createElement('div');
-      p.className = 'particle';
-      const size = Math.random() * 150 + 150;
-      p.style.width = `${size}px`;
-      p.style.height = `${size}px`;
-      p.style.left = `${Math.random() * 100}%`;
-      p.style.animationDuration = `${Math.random() * 20 + 20}s`;
-      p.style.animationDelay = `${Math.random() * 15}s`;
-      particlesContainer.appendChild(p);
-    }
-
-    const input = document.getElementById('api-key-input');
-    const loginBtn = document.getElementById('login-btn');
-    const errorEl = document.getElementById('login-error');
-    const toggleVisBtn = document.getElementById('toggle-visibility');
-    const eyeIcon = document.getElementById('eye-icon');
-    const logoImg = document.getElementById('login-logo-img');
-
-    // If already have a key, skip straight to home
-    if (localStorage.getItem('geminiApiKey')) {
-      window.location.replace('/');
-    }
-
-    // Apply saved theme
-    const savedTheme = localStorage.getItem('proberHomeTheme') || 'orange';
-    if (savedTheme !== 'orange') {
-      document.body.classList.add('theme-unc');
-      if (logoImg) logoImg.src = '/iconBlue.jpg';
-    } else {
-      document.body.classList.add('theme-orange');
-    }
-
-    toggleVisBtn.addEventListener('click', () => {
-      const isPassword = input.type === 'password';
-      input.type = isPassword ? 'text' : 'password';
-      eyeIcon.className = isPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
-    });
-
-    function showError(msg) {
-      errorEl.textContent = msg;
-      input.classList.add('login-input-error');
-    }
-
-    function clearError() {
-      errorEl.textContent = '';
-      input.classList.remove('login-input-error');
-    }
-
-    input.addEventListener('input', clearError);
-
-    function handleSubmit() {
-      const key = input.value.trim();
-      if (!key) {
-        showError('Please enter your Gemini API key.');
-        input.focus();
-        return;
-      }
-      if (!key.startsWith('AIza')) {
-        showError('That doesn\'t look like a valid Gemini API key (should start with "AIza").');
-        input.focus();
-        return;
-      }
-      localStorage.setItem('geminiApiKey', key);
-      window.location.replace('/');
-    }
-
-    loginBtn.addEventListener('click', handleSubmit);
-
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') handleSubmit();
-    });
-  </script>
+  <script src="/auth.js"></script>
+  <script src="/login.js"></script>
 </body>
 </html>

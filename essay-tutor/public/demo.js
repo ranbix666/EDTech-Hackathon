@@ -148,8 +148,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const isOn = useTabsView;
             feedbackViewToggle.classList.toggle('switcher-on', isOn);
             feedbackViewToggle.setAttribute('aria-pressed', isOn);
-            renderFeedback(getDemoFeedbackForPersona(), lastEssayText);
-            updateFeedbackState('results');
+            feedbackViewToggle.setAttribute('aria-label', isOn ? 'View as tabs (on)' : 'View as cards (off)');
+            applyFeedbackViewMode();
         });
     }
 
@@ -212,6 +212,30 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6. Feedback Rendering
     // ==========================================================================
 
+    function applyFeedbackViewMode() {
+        const wrap = feedbackResults.querySelector('.feedback-tabs-wrap');
+        if (!wrap) return;
+
+        const tabList = wrap.querySelector('.feedback-tabs');
+        const tabButtons = Array.from(wrap.querySelectorAll('.feedback-tab-btn'));
+        const panels = Array.from(wrap.querySelectorAll('.feedback-tab-panel'));
+        const storedIndex = Number.parseInt(wrap.dataset.activeTab || '0', 10);
+        const activeIndex = Number.isInteger(storedIndex) && storedIndex >= 0 && storedIndex < panels.length
+            ? storedIndex
+            : 0;
+
+        feedbackResults.classList.toggle('feedback-cards-view', !useTabsView);
+        if (tabList) tabList.hidden = !useTabsView;
+        tabButtons.forEach((button, index) => {
+            const selected = index === activeIndex;
+            button.setAttribute('aria-selected', String(selected));
+            button.tabIndex = selected ? 0 : -1;
+        });
+        panels.forEach((panel, index) => {
+            panel.setAttribute('aria-hidden', String(useTabsView && index !== activeIndex));
+        });
+    }
+
     function renderFeedback(data, essayText) {
         lastEssayText = essayText;
         feedbackResults.innerHTML = '';
@@ -245,21 +269,16 @@ document.addEventListener('DOMContentLoaded', () => {
         unlockedCount = 0;
         updateProgressTracker();
 
-        if (useTabsView && entries.length > 0) {
-            feedbackResults.classList.remove('feedback-cards-view');
+        if (entries.length > 0) {
             renderFeedbackAsTabs(entries, essayText);
-        } else {
-            feedbackResults.classList.add('feedback-cards-view');
-            entries.forEach(([title, payload]) => {
-                const { question, excerpt } = payload;
-                feedbackResults.appendChild(createChallengeCard(title, question, { excerpt }));
-            });
+            applyFeedbackViewMode();
         }
     }
 
     function renderFeedbackAsTabs(entries, essayText) {
         const wrap = document.createElement('div');
         wrap.className = 'feedback-tabs-wrap';
+        wrap.dataset.activeTab = '0';
 
         const tabList = document.createElement('div');
         tabList.className = 'feedback-tabs';
@@ -295,12 +314,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tabList.querySelectorAll('.feedback-tab-btn').forEach((btn, i) => {
             btn.addEventListener('click', () => {
-                tabList.querySelectorAll('.feedback-tab-btn').forEach((b, j) => {
-                    b.setAttribute('aria-selected', j === i);
-                });
-                panelsContainer.querySelectorAll('.feedback-tab-panel').forEach((p, j) => {
-                    p.setAttribute('aria-hidden', j !== i);
-                });
+                wrap.dataset.activeTab = String(i);
+                applyFeedbackViewMode();
             });
         });
 
