@@ -8,3 +8,6 @@ docs/technical-report/*.log
 docs/technical-report/*.out
 docs/technical-report/*.toc
 docs/technical-report/*.synctex.gz
+
+# machine-local Claude Code permissions -- can accumulate API keys, never commit
+.claude/settings.local.json
