@@ -9,6 +9,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
 const packageJson = require('./package.json');
 const app = express();
 const port = Number(process.env.PORT) || 3000;
+const quillDistPath = path.join(path.dirname(require.resolve('quill')), 'dist');
 
 const DEFAULT_MODEL = 'gemini-3.7-flash';
 const MODEL_NAME = process.env.GEMINI_MODEL || DEFAULT_MODEL;
@@ -127,6 +128,14 @@ app.get('/demo', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'demo.html'));
 });
 
+// Quill is the only runtime-critical browser dependency. Serving it locally
+// keeps the editor usable when venue Wi-Fi or a public CDN is unavailable.
+app.use('/vendor/quill', express.static(quillDistPath, {
+    dotfiles: 'deny',
+    fallthrough: false,
+    immutable: true,
+    maxAge: '1y',
+}));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/samples', express.static(path.join(__dirname, 'samples'), {
     dotfiles: 'deny',

@@ -26,7 +26,8 @@ This design preserves productive cognitive effort while still giving the student
 - Quill 2 rich-text editor with text and Markdown import.
 - Tabs and cards views that preserve entered reflections and unlock progress.
 - Printable session export for students and instructors.
-- No-key demo with pre-loaded feedback and suggestions.
+- A 90-second guided demo with labeled, pre-loaded feedback, sample defenses, and suggestions.
+- Locally served Quill assets so the editor does not depend on a public CDN.
 - Optional, consent-gated study instrumentation and JSONL export.
 - Keyboard-accessible tabs, reduced-motion support, responsive layout, and theme persistence.
 
@@ -43,6 +44,17 @@ flowchart LR
 The browser submits the draft and selected persona to `POST /challenge`. Express keeps application instructions separate from student text, requests schema-constrained JSON from Gemini, validates every required field, and returns only the normalized response. After the student writes a reflection, `POST /unlock` receives the full draft, challenge context, and reflection, then returns one focused suggestion and one general writing tip.
 
 The current implementation uses the maintained `@google/genai` SDK. The default model is `gemini-3.7-flash`, and `GEMINI_MODEL` can override it without changing code.
+
+## 90-second judge path
+
+Open `/demo` and follow the status line at the top:
+
+1. Review the highlighted Reviewer 2 challenge and the exact draft excerpt it targets.
+2. Click **Use sample defense** to fill a clearly labeled presentation response, or write your own.
+3. Click **Unlock Suggestion** to complete the reflection gate and reveal focused revision help.
+4. Open **Why this stands out** for a compact view of the learning design, constrained-AI controls, demo resilience, and research instrumentation.
+
+The guided demo is deterministic by design. Its model outputs are visibly labeled as pre-loaded, it makes no AI API calls, and its editor is served by the application. This makes it suitable for a short presentation without misrepresenting the live product path. The live path remains available through **Try a live model call**.
 
 ## Quick start
 
@@ -146,6 +158,7 @@ Local logs are written as JSONL under `essay-tutor/study-logs/` unless `STUDY_LO
 | --- | --- |
 | `.github/workflows/ci.yml` | Clean-install, syntax, and test workflow |
 | `docs/technical-report/` | Hackathon paper, review, presentation, and compiled PDF |
+| `docs/HACKATHON_DEMO_SCRIPT.md` | Three-minute pitch, judge Q&A, and contingency plan |
 | `essay-tutor/public/` | Browser UI, auth helper, themes, and demo |
 | `essay-tutor/samples/` | Importable example essays |
 | `essay-tutor/scripts/` | Study-log export utility |

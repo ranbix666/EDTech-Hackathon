@@ -81,9 +81,27 @@ describe('public and operational routes', () => {
         const sample = await request('/samples/sample_essay1.md');
 
         assert.equal(landing.response.status, 200);
-        assert.match(landing.text, /Try Live Demo/);
+        assert.match(landing.text, /90-second guided demo/);
         assert.equal(sample.response.status, 200);
         assert.match(sample.text, /driverless|autonomous|vehicle/i);
+    });
+
+    test('guided demo is transparent and its critical editor assets are local', async () => {
+        const demo = await request('/demo');
+        const demoScript = await request('/demo.js');
+        const quillScript = await request('/vendor/quill/quill.js');
+        const quillStyles = await request('/vendor/quill/quill.snow.css');
+
+        assert.equal(demo.response.status, 200);
+        assert.match(demo.text, /90-second guided demo/);
+        assert.match(demo.text, /preloaded model outputs/i);
+        assert.doesNotMatch(demo.text, /cdn\.jsdelivr\.net/);
+        assert.match(demoScript.text, /Use sample defense/);
+        assert.equal(quillScript.response.status, 200);
+        assert.match(quillScript.response.headers.get('content-type'), /javascript/);
+        assert.equal(quillStyles.response.status, 200);
+        assert.match(quillStyles.response.headers.get('content-type'), /css/);
+        assert.match(quillStyles.response.headers.get('cache-control'), /immutable/);
     });
 
     test('client configuration does not expose secrets', async () => {

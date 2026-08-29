@@ -57,6 +57,15 @@ const DEMO_UNLOCK_SUGGESTIONS = {
     },
 };
 
+const DEMO_SAMPLE_DEFENSES = {
+    'CLAIM': 'I should avoid an absolute ban. I could define two conditions for resuming deployment: independently verified fail-safe performance and a clear liability framework.',
+    'REASONING': 'Possibility is not inevitability. I should compare driverless-car risk with the baseline risk of human driving and support that comparison with failure-rate evidence.',
+    'COUNTERARGUMENT': 'The strongest opposing case is that automation removes distraction and fatigue. I should acknowledge that benefit, then explain what real-world evidence would still be needed.',
+    'SCOPE / IMPLICATION': 'My most defensible concern may be accountability rather than the technology itself. I can narrow the thesis to deployment before legal responsibility is settled.',
+    'Clarification Question': 'I should define Google cars as Waymo autonomous vehicles and explain which concrete measure makes that program a useful benchmark.',
+    'Co-Construction Question': 'I can consider an emergency mode that disables entertainment and then evaluate whether that design actually resolves the handoff problem.',
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     // ==========================================================================
     // 1. Element Selectors
@@ -65,6 +74,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearBtn = document.getElementById('clear-btn');
     const themeToggle = document.getElementById('theme-toggle');
     const brandIconImg = document.querySelector('.brand-icon-img');
+    const guideStatus = document.getElementById('demo-guide-status');
+    const judgeNotesBtn = document.getElementById('judge-notes-btn');
+    const judgeNotesDialog = document.getElementById('judge-notes-dialog');
+    const judgeNotesClose = document.getElementById('judge-notes-close');
 
     const feedbackEmpty = document.getElementById('feedback-empty');
     const feedbackLoading = document.getElementById('feedback-loading');
@@ -119,6 +132,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     demoChallengeBtn.addEventListener('click', loadDemoFeedback);
 
+    function updateGuideStatus(step, message) {
+        if (!guideStatus) return;
+        guideStatus.textContent = `Step ${step} of 3: ${message}`;
+        guideStatus.dataset.step = String(step);
+    }
+
+    judgeNotesBtn?.addEventListener('click', () => {
+        if (typeof judgeNotesDialog?.showModal === 'function') {
+            judgeNotesDialog.showModal();
+        } else {
+            judgeNotesDialog?.setAttribute('open', '');
+        }
+    });
+    judgeNotesClose?.addEventListener('click', () => judgeNotesDialog?.close?.());
+    judgeNotesDialog?.addEventListener('click', (event) => {
+        if (event.target === judgeNotesDialog) judgeNotesDialog.close();
+    });
+
     const personaTabs = document.querySelectorAll('.persona-tab');
     personaTabs.forEach(tab => {
         tab.addEventListener('click', () => {
@@ -139,6 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionLog = [];
         updateProgressTracker();
         hideExportButton();
+        updateGuideStatus(1, 'reload the sample feedback.');
         showToast('Editor cleared. Click "Load Demo Feedback" to reload the demo.', 'info');
     });
 
@@ -199,6 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateFeedbackState('results');
             demoChallengeBtn.classList.remove('loading');
             demoChallengeBtn.disabled = false;
+            updateGuideStatus(1, 'review a question, then add your defense.');
             showToast('Demo feedback loaded! Try writing a reflection.', 'info');
         }, 800);
     }
@@ -356,6 +389,12 @@ document.addEventListener('DOMContentLoaded', () => {
         reflectionSection.innerHTML = `
             <label class="reflection-label"><i class="fa-solid fa-pen-to-square"></i> How would you address this?</label>
             <textarea class="reflection-input" rows="4" placeholder="e.g., 'I could strengthen my thesis by...'"></textarea>
+            <div class="demo-reflection-shortcut">
+                <button type="button" class="demo-fill-reflection button ghost">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Use sample defense
+                </button>
+                <span>Presentation shortcut: still satisfies the reflection gate.</span>
+            </div>
             <button type="button" class="get-suggestions-btn button primary">
                 <span class="btn-icon"><i class="fa-solid fa-lock-open"></i></span>
                 <span class="btn-text">Unlock Suggestion</span>
@@ -364,9 +403,27 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         container.appendChild(reflectionSection);
 
+        const reflectionInput = reflectionSection.querySelector('.reflection-input');
+        const sampleDefenseBtn = reflectionSection.querySelector('.demo-fill-reflection');
+        const sampleDefenseShortcut = reflectionSection.querySelector('.demo-reflection-shortcut');
         const getSuggestionsBtn = reflectionSection.querySelector('.get-suggestions-btn');
+
+        reflectionInput.addEventListener('input', () => {
+            if (reflectionInput.value.trim()) {
+                updateGuideStatus(2, 'unlock the targeted suggestion.');
+            }
+        });
+
+        sampleDefenseBtn.addEventListener('click', () => {
+            reflectionInput.value = DEMO_SAMPLE_DEFENSES[title]
+                || 'I would narrow the claim, explain the missing reasoning step, and identify what evidence could change my position.';
+            reflectionInput.focus();
+            reflectionInput.dispatchEvent(new Event('input', { bubbles: true }));
+            showToast('Sample defense added. Now unlock the suggestion.', 'info');
+        });
+
         getSuggestionsBtn.addEventListener('click', () => {
-            const userDefense = reflectionSection.querySelector('.reflection-input').value;
+            const userDefense = reflectionInput.value;
             if (!userDefense.trim()) {
                 showToast('Please write a reflection before unlocking.', 'error');
                 return;
@@ -398,9 +455,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 unlockedCount++;
                 updateProgressTracker();
                 showExportButton();
+                updateGuideStatus(3, 'targeted help unlocked. The learning loop is complete.');
 
                 getSuggestionsBtn.remove();
-                reflectionSection.querySelector('.reflection-input').disabled = true;
+                sampleDefenseShortcut.remove();
+                reflectionInput.disabled = true;
             }, 600);
         });
 
