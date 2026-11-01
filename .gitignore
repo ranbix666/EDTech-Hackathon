@@ -26,4 +26,5 @@ study-exports/
 # Editor and operating-system files
 .DS_Store
 *.swp
+# Machine-local Claude Code permissions can contain sensitive commands or keys
 .claude/settings.local.json
