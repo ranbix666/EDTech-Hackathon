@@ -1,49 +1,58 @@
-# EdTech Hackathon Preparation Guide
+# Prober.ai Hackathon Readiness Guide
 
-As the official website is currently light on details, here is a general guide to help you prepare for the NY EDTech Hackathon.
+This checklist is specific to Prober.ai. It separates what is ready to show from what still needs evidence.
 
-## Common EdTech Hackathon Themes & Ideas
+## The one-sentence pitch
 
-Here are some popular areas in EdTech that can inspire your project:
+Prober.ai is a reflection-first writing tutor that asks students to defend their reasoning before it unlocks targeted revision help.
 
-- **Personalized Learning:** Platforms that adapt to a student's pace and learning style.
-- **AI Tutors & Assistants:** AI-powered bots to help students with homework, exam preparation, or understanding complex topics.
-- **Gamified Learning:** Educational games or apps that make learning more engaging and fun.
-- **Teacher Productivity Tools:** Tools to help teachers with administrative tasks like grading, lesson planning, or tracking student progress.
-- **Special Education Tech (SET):** Assistive technology for students with disabilities.
-- **Collaborative Learning Platforms:** Tools that facilitate group projects and remote learning, like virtual whiteboards or shared coding environments.
-- **Mental Health & Wellbeing:** Apps and tools to support student mental health.
+## What the demo must prove
 
-## Suggested Tech Stacks for Rapid Prototyping
+- The product targets a clear problem: answer-first AI can make passive editing easier than active reasoning.
+- The interaction is meaningfully different: questions come first, student reflection is required, and help is narrowly scoped.
+- The AI behavior is constrained: persona-specific schemas, exact-excerpt verification, input bounds, and separated system instructions are implemented in code.
+- The demo is honest and resilient: guided outputs are labeled as pre-loaded, the editor is local, and the live model path is visibly separate.
+- The concept is testable: consent-gated interaction logs and session export make later classroom evaluation possible.
 
-Hackathons are all about building a functional prototype quickly. Here are some technologies that are great for that:
+## Presentation checklist
 
-- **Frontend:**
-  - **React, Vue, or Svelte:** Popular JavaScript frameworks for building user interfaces quickly.
-  - **Bootstrap or Tailwind CSS:** UI frameworks to make your application look good without spending too much time on styling.
-- **Backend:**
-  - **Python (Flask/Django):** Great for data science, AI/ML projects, and building REST APIs.
-  - **Node.js (Express):** Fast, scalable, and uses JavaScript, which is convenient if you're also using it on the frontend.
-  - **Firebase or Supabase:** "Backend as a Service" platforms that provide a database, authentication, and hosting, allowing you to build a full-stack application with minimal backend code.
-- **Databases:**
-  - **PostgreSQL or MySQL:** Solid relational databases.
-  - **MongoDB:** A flexible NoSQL database that is easy to get started with.
-- **APIs & Services:**
-  - **OpenAI API or Anthropic API:** For integrating powerful language models into your application.
-  - **Google Cloud Vision/Speech-to-Text:** For projects involving image or audio processing.
-  - **Khan Academy API:** For accessing educational content.
+- Start at `/`, where the value proposition and guided-demo button are visible above the fold.
+- Use `/demo` for the judged walkthrough. Do not type a long response live; use **Use sample defense**.
+- Hover or focus a challenge so the cited essay passage is highlighted.
+- Unlock one suggestion. One complete loop is more persuasive than clicking every tab.
+- Open **Why this stands out** after the unlock, so implementation details explain something the judges have already seen.
+- Keep `/health` and the GitHub Actions page available in background tabs if a judge asks about operational readiness.
 
-## General Hackathon Tips
+## Claims discipline
 
-- **Keep it simple:** Focus on building one or two core features really well.
-- **Plan your time:** Allocate time for brainstorming, coding, and preparing your presentation.
-- **Work as a team:** Communicate effectively and divide the work based on each team member's strengths.
-- **Don't forget the demo:** A good presentation is just as important as the code. Make sure you have a compelling story to tell.
-- **Have fun!** Hackathons are a great opportunity to learn, network, and build something cool.
+Safe claims:
 
-## Next Steps
+- Prober.ai requires reflection before a suggestion is shown.
+- It is designed to preserve productive cognitive effort.
+- It records consented interaction data for later evaluation.
+- The guided demo works without an AI key or model call.
 
-- **Keep an eye on the official website:** More information about the specific themes and rules will likely be posted closer to the event date.
-- **Contact the organizers:** If you have specific questions, don't hesitate to reach out to them.
+Claims that require a study before using them:
 
-Good luck!
+- Prober.ai improves writing quality.
+- Students learn more or retain more than with a general chatbot.
+- Teachers save a specific amount of time.
+- The system reduces cheating or guarantees academic integrity.
+
+## Remaining product work after a hackathon
+
+1. Run a small usability and learning study with pre/post writing measures.
+2. Add instructor-facing cohort views only after defining a legitimate classroom workflow and privacy policy.
+3. Replace filesystem study logs with approved persistent storage for real deployments.
+4. Evaluate question quality, excerpt grounding, latency, and failure rates across a representative essay set.
+5. Add institution-appropriate authentication, retention controls, deletion, and accessibility testing.
+
+## Demo contingency
+
+| Failure | Response |
+| --- | --- |
+| Model quota, key, or latency issue | Stay on `/demo`; it intentionally makes no model calls. |
+| Public internet unavailable | The editor and app remain functional. External fonts/icons may fall back cosmetically. |
+| Browser popup blocks export | Use the built-in HTML download fallback. |
+| Limited presentation time | Show one Reviewer 2 question, one sample defense, one unlock, then the Judge view. |
+| Asked for evidence of learning gains | State that this is the next evaluation milestone and show the consent-gated study instrumentation. |

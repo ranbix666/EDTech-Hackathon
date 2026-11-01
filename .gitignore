@@ -9,5 +9,22 @@ docs/technical-report/*.out
 docs/technical-report/*.toc
 docs/technical-report/*.synctex.gz
 
-# machine-local Claude Code permissions -- can accumulate API keys, never commit
+# Dependencies and local configuration
+node_modules/
+**/node_modules/
+.env
+**/.env
+!.env.example
+!**/.env.example
+
+# Local research data and derived exports
+study-logs/
+study-exports/
+**/study-logs/
+**/study-exports/
+
+# Editor and operating-system files
+.DS_Store
+*.swp
+# Machine-local Claude Code permissions can contain sensitive commands or keys
 .claude/settings.local.json
