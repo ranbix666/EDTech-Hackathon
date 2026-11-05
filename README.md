@@ -1,5 +1,8 @@
 # Prober.ai
 
+> [!IMPORTANT]
+> **This repository is no longer maintained.** It is kept as the record of the NY EdTech Hackathon build (second place, March 2026), the Gemini-era paper source behind arXiv:2605.05598, and the August 2026 reliability work. Development continues in [ranbix666/proberAI](https://github.com/ranbix666/proberAI). That repository keeps this one's complete Git history, and its `docs/history/` folder holds copies of the paper source, the demo script, and the repository audit.
+
 Prober.ai is a reflection-first AI tutor for argumentative writing. Instead of immediately rewriting a student's draft, it identifies a small number of reasoning gaps, asks targeted questions, and waits for the student to respond before unlocking a focused revision suggestion.
 
 The project was created for the NY EdTech Hackathon and received second place.
